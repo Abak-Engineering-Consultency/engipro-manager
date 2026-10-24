@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "journeys": "esbuild scripts/journeys.ts --bundle --platform=node --format=esm --log-level=warning --outfile=node_modules/.cache/journeys.mjs && node node_modules/.cache/journeys.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.562.0",

@@ -4,11 +4,19 @@ import { Ctx } from './engine/core';
 import { tick } from './engine/scheduler';
 import type { AppState, Deliverable, Grant, PaymentItem, Quotation, RoleId, Settings, User } from './types';
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 export const BASE_NOW = '2026-10-25T06:00:00.000Z'; // Sunday 09:00, Riyadh
 
+/** «سامي القحطاني» → «س ق»: the family name's initial skips the article «ال». */
+const initials = (name: string) => {
+  const words = name.replace(/^م\.\s*/, '').split(' ').filter(Boolean);
+  const first = words[0]?.[0] ?? '';
+  const last = words.length > 1 ? words[words.length - 1].replace(/^ال/, '')[0] : '';
+  return [first, last].filter(Boolean).join(' ');
+};
+
 const user = (id: string, name: string, title: string, roleId: RoleId, deptCode?: User['deptCode'], grants: Grant[] = []): User => ({
-  id, name, title, roleId, deptCode, grants, initials: name.replace(/^م\.\s*/, '').split(' ').map((w) => w[0]).slice(0, 2).join(' '),
+  id, name, title, roleId, deptCode, grants, initials: initials(name),
 });
 
 const USERS: User[] = [
@@ -364,6 +372,10 @@ export function buildSeed(): AppState {
   step('u_fin', 'payment.issue_claim', { paymentId: pay(fuel, 'مقدمة').id, invoiceRef: 'INV-2026-0521' });
   step('u_fin', 'payment.record_collection', { paymentId: pay(fuel, 'مقدمة').id, amount: 63_000, ref: 'RCV-2026-0431' });
   at(d(-6));
+  step('u_arc_e2', 'cost.create', {
+    projectId: fuel, scopeItemId: item(fuel, 'محطة 3'), service: 'رفع مساحي لموقع محطة 3', reason: 'لا يوجد رفع مساحي معتمد للموقع', kind: 'unplanned',
+    justification: 'العميل لم يوفر الرفع المساحي المذكور في العرض', amount: 4_500, vendor: 'مكتب المساحة المعتمد', quoteRef: 'QT-SV-2210', paymentTerms: 'كامل المبلغ عند التسليم', bearer: 'abak', payer: 'abak',
+  });
   const st1 = dl(fuel, 'المفهوم والتصور المعماري — محطة 1');
   step('u_arc_e2', 'deliverable.upload', { deliverableId: st1.id, files: ['ST1-concept-Rev00.pdf'] });
   step('u_arc_e2', 'deliverable.submit', { deliverableId: st1.id });

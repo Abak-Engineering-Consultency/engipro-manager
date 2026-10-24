@@ -220,6 +220,17 @@ expect(project(fuel.id).scopeItems.length === fuel.scopeItems.length && project(
 expect(s.payments.filter((p) => p.projectId === fuel.id).length === 3, 'one contract payment schedule, no artificial split');
 ok('u_arc_e2', 'project.suspend_site', { projectId: fuel.id, siteId: fuel.sites[1].id, reason: 'بانتظار صك الأرض من العميل' });
 expect(project(fuel.id).status === 'in_progress', 'suspending one site does not suspend the others');
+// F6 with a reviewer who holds the permission: the department manager prepares, so cannot review.
+const flsItem = project(fuel.id).scopeItems.find((i) => i.deptCode === 'FLS')!;
+ok('u_fls_m', 'project.assign_owner', { projectId: fuel.id, scopeItemId: flsItem.id, ownerId: 'u_fls_m' });
+const flsD = s.deliverables.find((d) => d.projectId === fuel.id && d.scopeItemIds.includes(flsItem.id))!;
+ok('u_fls_m', 'deliverable.upload', { deliverableId: flsD.id, files: ['fire.pdf'] });
+ok('u_fls_m', 'deliverable.submit', { deliverableId: flsD.id });
+refused('u_fls_m', 'deliverable.review', { deliverableId: flsD.id, decision: 'accepted', note: '' }, 'F6/AC-04 a reviewer who prepared the revision cannot review it');
+// Task edit keeps one owner and logs the reason.
+const tk = s.tasks.find((t) => t.source === 'kickoff' && t.status !== 'completed')!;
+ok(tk.creatorId, 'task.update', { taskId: tk.id, priority: 'high', reason: 'أولوية الاستلام', reviewerId: '' });
+expect(s.tasks.find((t) => t.id === tk.id)!.priority === 'high' && s.events.some((e) => e.type === 'task.updated'), 'task edit logged with a reason');
 
 // ── Exception, closure, cancellation (AC-03, AC-08, AC-13, AC-14) ───────────────
 section('CEO exception (AC-03)');

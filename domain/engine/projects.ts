@@ -203,6 +203,7 @@ export const projectCommands = {
     ctx.check(me.roleId === 'dept_manager' || me.roleId === 'main_dept_manager', 'يرفع طلب الاستثناء مدير القسم أو مدير الأقسام');
     const act = ctx.s.activations.find((a) => a.opportunityId === p.opportunityId && a.status === 'pending_finance');
     ctx.check(act, 'لا يوجد طلب تفعيل بانتظار المالية لهذه الفرصة');
+    ctx.check(!ctx.s.projects.some((x) => x.opportunityId === p.opportunityId), 'للفرصة مشروع قائم — لا استثناء ينشئ مشروعًا ثانيًا (F1)');
     ctx.check(!ctx.s.exceptions.some((e) => e.opportunityId === p.opportunityId && ['requested', 'granted'].includes(e.status)), 'يوجد استثناء قائم لهذه الفرصة');
     ctx.check(p.reason.trim() && p.commitmentDoc.trim() && p.allowedScope.trim(), 'السبب ومستند التعميد والنطاق المسموح مطلوبة');
     ctx.check(p.durationDays > 0 && p.costCap > 0, 'المدة وسقف التكلفة مطلوبان');
@@ -645,7 +646,9 @@ export const projectCommands = {
       ctx.notify([chain.requestedBy], { title: `أُعيد طلب ${p.kind === 'closure' ? 'الإغلاق' : 'الإلغاء'} — ${proj.id}`, body: p.note, link: `${link(proj)}?tab=closure`, type: `${p.kind}.returned` });
       return;
     }
-    const allIn = step.approverIds.every((id) => step.decisions.some((d) => d.userId === id && d.decision === 'approved'));
+    const allIn = step.key === 'dept_managers'
+      ? step.approverIds.every((id) => step.decisions.some((d) => d.userId === id && d.decision === 'approved'))
+      : step.decisions.some((d) => d.decision === 'approved');
     ctx.event(`${p.kind}.step_approved`, { type: 'project', id: proj.id }, `اعتماد ${names[step.key]}${step.key === 'dept_managers' ? ` (${step.decisions.length}/${step.approverIds.length})` : ''}`, proj.id);
     if (!allIn) return;
     step.status = 'approved';
@@ -790,8 +793,7 @@ function newChain(ctx: Ctx, proj: Project, kind: ApprovalChain['kind'], reason: 
   steps.push({ key: 'director', approverIds: ctx.directors(), decisions: [], status: kind === 'closure' ? 'waiting' : 'pending' });
   steps.push({ key: 'finance', approverIds: ctx.finance(), decisions: [], status: 'waiting' });
   steps.push({ key: 'ceo', approverIds: ctx.ceos(), decisions: [], status: 'waiting' });
-  // A single finance or director approval is enough for those steps: anyone holding it decides.
-  for (const s of steps) if (s.key !== 'dept_managers') s.approverIds = s.approverIds.slice(0, 1);
+  // Department managers decide in parallel and all must approve; the other steps need one holder.
   return { kind, requestedBy: ctx.actorId as UserId, requestedAt: ctx.now, reason, steps, status: 'pending', returnTo };
 }
 

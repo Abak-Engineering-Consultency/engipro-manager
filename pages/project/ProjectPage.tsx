@@ -118,7 +118,7 @@ export const ProjectPage: React.FC = () => {
         <LifecycleStepper status={project.status} />
 
         {/* SC-02 — the project bar */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 border-t border-line bg-page px-4 py-3 text-sm md:grid-cols-4 xl:grid-cols-7">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line bg-page px-4 py-3 text-sm md:grid-cols-4 2xl:grid-cols-7">
           <BarFact label="المرحلة الحالية">{bar.phase ?? '—'}</BarFact>
           <BarFact label="الجهة والمعاملة">
             {bar.gov ? (
@@ -181,7 +181,7 @@ function BarFact({ label, children }: { label: string; children: React.ReactNode
   return (
     <div className="min-w-0">
       <p className="text-[11px] text-muted">{label}</p>
-      <div className="truncate text-[13px] text-ink">{children}</div>
+      <div className="text-[13px] leading-6 text-ink">{children}</div>
     </div>
   );
 }

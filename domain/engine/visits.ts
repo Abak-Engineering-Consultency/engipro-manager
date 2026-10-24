@@ -203,6 +203,7 @@ export const visitCommands = {
       ctx.check(['executed', 'report_pending', 'report_approved', 'inaccessible'].includes(v.status), `${v.id} لم تُنفذ`);
     }
     const projectId = vs[0].link?.projectId;
+    ctx.check(projectId && vs.every((v) => v.link?.projectId === projectId), 'المطالبة اليدوية لكل عقد: اختر زيارات مشروع واحد');
     const claimId = ctx.nextId('VCL');
     for (const v of vs) v.claimId = claimId;
     ctx.s.visitClaims.push({ id: claimId, projectId, visitIds: p.visitIds, amount: p.amount, at: ctx.now, by: ctx.actorId as UserId, ref: p.ref });

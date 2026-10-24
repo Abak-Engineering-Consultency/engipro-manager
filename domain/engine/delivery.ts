@@ -87,6 +87,7 @@ export const deliveryCommands = {
     const d = ctx.deliverable(p.deliverableId);
     const proj = ctx.project(d.projectId);
     ctx.require('deliverable.prepare', { own: deliverableOwners(proj, d).includes(ctx.actorId as UserId) });
+    ctx.check(!d.requiresGov, 'هذا المخرج يُعتمد بصدور المعاملة الحكومية، لا برفع ملفات (GT-11)');
     ctx.check(d.status === 'in_preparation', 'الرفع متاح والمخرج قيد الإعداد');
     ctx.check(p.files.some((f) => f.trim()), 'أضف ملفًا واحدًا على الأقل');
     let r = current(d);
@@ -104,6 +105,7 @@ export const deliveryCommands = {
     const d = ctx.deliverable(p.deliverableId);
     const proj = ctx.project(d.projectId);
     ctx.require('deliverable.prepare', { own: deliverableOwners(proj, d).includes(ctx.actorId as UserId) });
+    ctx.check(!d.requiresGov, 'هذا المخرج يُعتمد بصدور المعاملة الحكومية (GT-11)');
     ctx.check(d.status === 'in_preparation', 'المخرج ليس قيد الإعداد');
     const r = current(d);
     ctx.check(r?.files.length, 'ارفع ملفات الإصدار أولًا');

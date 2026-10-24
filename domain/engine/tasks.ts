@@ -112,6 +112,37 @@ export const taskCommands = {
     ctx.notify([t.ownerId, t.creatorId], { title: `أُلغيت المهمة: ${t.title}`, body: p.reason, link: tlink(t), type: 'task.cancelled' });
   },
 
+  /** Change the due date, priority or reviewer; the owner changes only through task.reassign (TK-08). */
+  'task.update'(ctx: Ctx, p: { taskId: string; dueDate?: ISO; priority?: Task['priority']; reviewerId?: UserId | '' ; reason: string }) {
+    const t = ctx.task(p.taskId);
+    const proj = t.link?.projectId ? ctx.s.projects.find((x) => x.id === t.link!.projectId) : undefined;
+    ctx.check([t.ownerId, t.creatorId, proj?.pmId].includes(ctx.actorId as UserId), 'يعدّلها المسؤول أو المنشئ أو مدير المشروع');
+    ctx.check(!['completed', 'cancelled'].includes(t.status), 'المهمة منتهية');
+    ctx.check(p.reason.trim(), 'سبب التعديل مطلوب');
+    if (p.reviewerId !== undefined) {
+      ctx.check(p.reviewerId !== t.ownerId, 'المراجع غير مسؤول المهمة');
+      if (t.link?.type === 'deliverable' && ctx.deliverable(t.link.id).technical) ctx.check(p.reviewerId, 'المراجع إلزامي لمهام المخرجات الفنية');
+      ctx.check(t.status !== 'in_review' || p.reviewerId, 'المهمة بانتظار المراجعة — لا يُزال المراجع الآن');
+    }
+    const changes: string[] = [];
+    if (p.dueDate && p.dueDate !== t.dueDate) {
+      changes.push(`الموعد ${t.dueDate.slice(0, 10)} ← ${p.dueDate.slice(0, 10)}`);
+      t.dueDate = p.dueDate;
+      t.reminderSentAt = undefined;
+    }
+    if (p.priority && p.priority !== t.priority) {
+      changes.push(`الأولوية ${t.priority} ← ${p.priority}`);
+      t.priority = p.priority;
+    }
+    if (p.reviewerId !== undefined && (p.reviewerId || undefined) !== t.reviewerId) {
+      changes.push(`المراجع ← ${p.reviewerId ? ctx.user(p.reviewerId).name : 'بلا مراجع'}`);
+      t.reviewerId = p.reviewerId || undefined;
+    }
+    ctx.check(changes.length, 'لا تغيير');
+    ctx.event('task.updated', { type: 'task', id: t.id }, `تعديل: ${changes.join('، ')} — ${p.reason}`, t.link?.projectId);
+    ctx.notify([t.ownerId, t.creatorId, t.reviewerId], { title: `عُدّلت المهمة: ${t.title}`, body: changes.join('، '), link: tlink(t), type: 'task.updated' });
+  },
+
   'task.comment'(ctx: Ctx, p: { taskId: string; text: string }) {
     const t = ctx.task(p.taskId);
     ctx.check(p.text.trim(), 'التعليق فارغ');
