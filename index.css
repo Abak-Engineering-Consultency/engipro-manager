@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+/*
+ * ABAK design tokens — the same values as Abak_NEW_design (apps/web/src/styles/tokens.css).
+ * Brand blue for actions and navigation, gold as a sparing accent, semantic status
+ * colours pulled away from the gold. Components bind to these names, never to raw hex.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-50: #F0F7FA;
+  --color-brand-100: #D9EBF2;
+  --color-brand-200: #B3D6E5;
+  --color-brand-300: #7FB6CE;
+  --color-brand-400: #4A8FAF;
+  --color-brand-500: #2B7295;
+  --color-brand-600: #216383;
+  --color-brand-700: #1B5169;
+  --color-brand-800: #163F52;
+  --color-brand-900: #0F2C3A;
+
+  --color-accent-50: #FAF6EC;
+  --color-accent-100: #F2E9CF;
+  --color-accent-200: #E4D3A2;
+  --color-accent-300: #D2B96F;
+  --color-accent-400: #BC9F4F;
+  --color-accent-500: #A5893F;
+  --color-accent-600: #8B7334;
+  --color-accent-700: #6E5A28;
+
+  /* ABAK neutrals replace Tailwind's gray and slate everywhere */
+  --color-gray-50: #F7F9FA;
+  --color-gray-100: #EFF2F4;
+  --color-gray-200: #E1E6EA;
+  --color-gray-300: #C9D1D7;
+  --color-gray-400: #9AA7B0;
+  --color-gray-500: #5E6E79;
+  --color-gray-600: #556670;
+  --color-gray-700: #465863;
+  --color-gray-800: #2B3A44;
+  --color-gray-900: #16232B;
+  --color-slate-50: #F7F9FA;
+  --color-slate-100: #EFF2F4;
+  --color-slate-200: #E1E6EA;
+  --color-slate-300: #C9D1D7;
+  --color-slate-400: #9AA7B0;
+  --color-slate-500: #5E6E79;
+  --color-slate-600: #556670;
+  --color-slate-700: #465863;
+  --color-slate-800: #2B3A44;
+  --color-slate-900: #16232B;
+
+  /* Older screens used Tailwind blue/indigo as their primary: map them onto the brand ramp */
+  --color-blue-50: #F0F7FA;
+  --color-blue-100: #D9EBF2;
+  --color-blue-200: #B3D6E5;
+  --color-blue-300: #7FB6CE;
+  --color-blue-400: #4A8FAF;
+  --color-blue-500: #2B7295;
+  --color-blue-600: #216383;
+  --color-blue-700: #1B5169;
+  --color-blue-800: #163F52;
+  --color-blue-900: #0F2C3A;
+  --color-indigo-50: #F0F7FA;
+  --color-indigo-100: #D9EBF2;
+  --color-indigo-500: #2B7295;
+  --color-indigo-600: #216383;
+  --color-indigo-700: #1B5169;
+
+  /* Semantic status (DESIGN-PATTERNS: gold is never a status) */
+  --color-st-new: #556670;
+  --color-st-new-bg: #EDF0F2;
+  --color-st-progress: #1D6F9C;
+  --color-st-progress-bg: #E7F1F7;
+  --color-st-waiting: #A54B08;
+  --color-st-waiting-bg: #FBF0E2;
+  --color-st-success: #197A4B;
+  --color-st-success-bg: #E4F3EB;
+  --color-st-danger: #B42318;
+  --color-st-danger-bg: #FBEAE8;
+  --color-st-muted: #5E6E79;
+  --color-st-muted-bg: #EEF1F3;
+
+  --color-page: #F7F9FA;
+  --color-card: #FFFFFF;
+  --color-sunken: #EFF2F4;
+  --color-line: #E1E6EA;
+  --color-line-strong: #C9D1D7;
+  --color-input: #86939C;
+  --color-ink: #16232B;
+  --color-ink-2: #465863;
+  --color-muted: #5E6E79;
+  --color-faint: #7F8D97;
+
+  --radius-card: 8px;
+  --shadow-card: 0 1px 2px rgba(15, 44, 58, 0.06), 0 1px 3px rgba(15, 44, 58, 0.08);
+  --shadow-overlay: 0 8px 28px rgba(15, 44, 58, 0.18);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  background: var(--color-page);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Directional icons mirror in RTL; logos and charts never get this class */
+[dir="rtl"] .mirror-rtl {
+  transform: scaleX(-1);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Machine strings (IDs, amounts, phone, email) stay LTR and never wrap */
+@layer components {
+  .ltr-iso {
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+}
+
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-brand-900);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
