@@ -31,7 +31,7 @@ let fail = 0;
   const root = async (text, label) => (!text && (await drawer().count()) ? drawer() : text ? page.locator('div, section, li, tr, article').filter({ hasText: text }).filter({ has: page.getByRole('button', { name: label, exact: true }) }).last() : page);
   const toastText = async () => ((await page.locator('div.fixed.bottom-4 > div').last().textContent().catch(() => '')) || '').trim();
   /** Click a command button, fill its form, submit. `refuse: true` expects the engine to refuse. */
-  const cmd = async (label, { within, fill = {}, select = {}, check = [], refuse = false } = {}) => {
+  const cmd = async (label, { within, fill = {}, select = {}, check = [], uncheck = [], refuse = false } = {}) => {
     const btn = (await root(within, label)).getByRole('button', { name: label, exact: true }).first();
     if (!(await btn.count()) && refuse) { result(true, `${label} not offered to this user (hidden; the engine also refuses)`); return false; }
     if (!(await btn.count())) { result(false, `${label}: button not found${within ? ` in «${within}»` : ''}`); await shot(`missing-${label}`); return false; }
@@ -48,6 +48,7 @@ let fail = 0;
         await el.selectOption({ label: hit ?? v });
       }
       for (const lbl of check) await dlg.locator('label', { hasText: lbl }).last().locator('input').first().check();
+      for (const lbl of uncheck) await dlg.locator('label', { hasText: lbl }).last().locator('input').first().uncheck();
       await dlg.locator('footer').getByRole('button', { name: label, exact: true }).click();
       await page.waitForTimeout(250);
       if (await dlg.count()) {
@@ -150,15 +151,39 @@ let fail = 0;
 
   console.log('CEO exception');
   await as('م. فهد الدوسري'); await go('/intake'); await tab('استثناء البدء');
-  await cmd('طلب استثناء بدء', { select: { 'الفرصة': 'OPP-2026-0150' }, fill: { 'السبب': 'موعد مدن', 'مستند التعميد القائم': 'PO-7781', 'النطاق المسموح': 'التصميم الإنشائي فقط', 'المدة': 30, 'سقف التكلفة': 10000 } });
+  await cmd('طلب استثناء بدء', { refuse: true, select: { 'الفرصة': 'OPP-2026-0150' }, fill: { 'السبب': 'موعد مدن', 'مستند التعميد القائم': 'PO-7781', 'وصف النطاق المسموح': 'التصميم الإنشائي فقط', 'المدة': 30, 'سقف التكلفة': 10000 } });
+  await cmd('طلب استثناء بدء', { select: { 'الفرصة': 'OPP-2026-0150' }, check: ['التصميم الإنشائي للمصنع'], fill: { 'السبب': 'موعد مدن', 'مستند التعميد القائم': 'PO-7781', 'وصف النطاق المسموح': 'التصميم الإنشائي فقط', 'المدة': 30, 'سقف التكلفة': 10000 } });
   await as('م. سامي القحطاني'); await go('/intake'); await tab('استثناء البدء');
   await cmd('منح الاستثناء', { refuse: true });
   await as('م. خالد الزهراني'); await go('/intake'); await tab('استثناء البدء');
   await cmd('منح الاستثناء', { fill: { 'ملاحظة القرار': 'بحدود السقف' } });
+  await go('/projects/PRJ-2026-0006');
+  await see('البنود المسموحة: التصميم الإنشائي للمصنع', 'project bar names the allowed scope items');
+  await go('/projects/PRJ-2026-0006?tab=deliverables');
+  result((await page.getByText('خارج نطاق الاستثناء', { exact: false }).count()) > 0, 'deliverables outside the allowed scope are marked as waiting for finance');
+  await shot('exception-scope');
   await as('منى العتيبي'); await go('/intake'); await tab('طلبات التفعيل');
   await cmd('اعتماد المالية', { within: 'ACT-2026-0032' });
   await go('/projects');
   result((await page.getByText('PRJ-2026-0006').count()) > 0 && (await page.getByText('PRJ-2026-0007').count()) === 0, 'finance approval linked to the same project PRJ-2026-0006 (no PRJ-2026-0007)');
+  await go('/projects/PRJ-2026-0006?tab=deliverables');
+  result((await page.getByText('خارج نطاق الاستثناء', { exact: false }).count()) === 0, 'after finance approval no deliverable is held by the exception scope');
+
+  console.log('Task contributors and attachments (TK-03)');
+  const T = 'تجهيز ملف تأهيل لمنافسة البلدية';
+  await as('م. سامي القحطاني'); await go('/work');
+  await cmd('مهمة جديدة', { fill: { 'عنوان المهمة': T }, select: { 'المسؤول': 'م. ريم الشهري' }, check: ['م. سارة الغامدي', 'م. فهد الدوسري'] });
+  await as('م. سارة الغامدي'); await go('/work'); await tab('أساهم فيها');
+  await see(T, 'the contributor finds the task under «أساهم فيها»');
+  await openRow(T);
+  await cmd('إرفاق ملفات', { fill: { 'أسماء الملفات': 'شهادة التصنيف.pdf' } });
+  await see('شهادة التصنيف.pdf', 'attachment listed with its Nextcloud reference');
+  await shot('task-attachments');
+  await as('م. ريم الشهري'); await go('/work'); await tab('المسندة إليّ');
+  await openRow(T);
+  await cmd('تعديل الموعد / الأولوية / المراجع / المساهمين', { uncheck: ['م. فهد الدوسري'], fill: { 'سبب التعديل': 'لم يعد القسم الإنشائي مطلوبًا' } });
+  await as('م. فهد الدوسري'); await go('/work'); await tab('أساهم فيها');
+  result((await page.getByText(T, { exact: false }).count()) === 0, 'a removed contributor no longer sees the task under «أساهم فيها»');
 
   console.log('Closure chain and collection after closure (PRJ-2026-0001)');
   const C = '/projects/PRJ-2026-0001?tab=closure';

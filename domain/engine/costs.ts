@@ -17,6 +17,14 @@ function capCheck(ctx: Ctx, proj: Project, amount: number) {
   ctx.check(used + amount <= exc.costCap, `يتجاوز سقف الاستثناء (${exc.costCap} ر.س، المستخدم ${used}) — يتطلب تمديدًا معتمدًا من الرئيس التنفيذي`);
 }
 
+/** The scope items a cost belongs to: its own item, or the item behind its government transaction. */
+function costItems(ctx: Ctx, c: Pick<CostRequest, 'scopeItemId' | 'govTransactionId'>) {
+  if (c.scopeItemId) return [c.scopeItemId];
+  const g = c.govTransactionId ? ctx.s.gov.find((x) => x.id === c.govTransactionId) : undefined;
+  const d = g?.deliverableId ? ctx.s.deliverables.find((x) => x.id === g.deliverableId) : undefined;
+  return d?.scopeItemIds ?? [];
+}
+
 /** 11-B7 — project cost requests (AD-03, D14, A6). */
 export const costCommands = {
   'cost.create'(ctx: Ctx, p: Omit<CostRequest, 'id' | 'requestedBy' | 'requestedAt' | 'status' | 'decisions' | 'paid' | 'payments'>) {
@@ -27,6 +35,7 @@ export const costCommands = {
     ctx.check(p.service.trim() && p.reason.trim() && p.vendor.trim(), 'الخدمة والسبب والجهة المنفذة مطلوبة');
     ctx.check(p.amount > 0, 'المبلغ مطلوب');
     if (p.kind !== 'planned') ctx.check(p.justification?.trim(), 'التكلفة غير المخططة أو تجاوز التقدير تحتاج مبررًا');
+    ctx.requireExceptionScope(proj, costItems(ctx, p), 'طلب التكلفة');
     capCheck(ctx, proj, p.amount);
     const c: CostRequest = { ...p, id: ctx.nextId('CR'), requestedBy: ctx.actorId as string, requestedAt: ctx.now, status: 'submitted', decisions: [], paid: 0, payments: [] };
     ctx.s.costs.push(c);
@@ -43,6 +52,7 @@ export const costCommands = {
     const proj = ctx.project(c.projectId);
     if (p.decision === 'approved') {
       ctx.check(c.kind === 'planned' || c.justification?.trim(), 'لا اعتماد لتكلفة غير مخططة دون مبرر — أعدها للاستكمال');
+      ctx.requireExceptionScope(proj, costItems(ctx, c), 'طلب التكلفة');
       capCheck(ctx, proj, c.amount);
     }
     c.decisions.push({ by: ctx.actorId as string, decision: p.decision, note: p.note, at: ctx.now });

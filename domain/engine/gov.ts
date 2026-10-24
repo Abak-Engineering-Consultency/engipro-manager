@@ -95,6 +95,8 @@ export const govCommands = {
     ctx.check(g.requiredDocs.every((d) => d.received), 'استكمل المستندات المطلوبة قبل التقديم');
     ctx.check(p.requestNo.trim(), 'رقم الطلب في المنصة مطلوب');
     const proj = ctx.project(g.projectId);
+    const d = g.deliverableId ? ctx.s.deliverables.find((x) => x.id === g.deliverableId) : undefined;
+    ctx.requireExceptionScope(proj, d?.scopeItemIds ?? [], 'تقديم هذه المعاملة');
     const prev = g.rounds[g.rounds.length - 1];
     if (prev && !prev.officeEnd && prev.officeStart) prev.officeEnd = ctx.now;
     if (g.status === 'comments_processing' && prev?.commentsTaskId) {

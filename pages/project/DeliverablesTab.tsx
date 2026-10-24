@@ -6,6 +6,7 @@ import { fmtDate, isAfter } from '../../domain/calendar';
 import { deptName } from '../../domain/catalog';
 import { deliverableOwners, revLabel } from '../../domain/engine/delivery';
 import { DELIVERABLE_STATES } from '../../domain/labels';
+import { exceptionScope } from '../../domain/selectors';
 import type { Deliverable, DeliverableState } from '../../domain/types';
 import { DeliverableDrawer, clientVisible } from '../../components/delivery/DeliverableDrawer';
 import { Empty, Id, Pill, Rule, Select, StatePill, Table, Td, cn } from '../../components/ui';
@@ -34,6 +35,7 @@ export const DeliverablesTab: React.FC<TabProps> = ({ project, access }) => {
   const counts = (s: DeliverableState) => all.filter((d) => d.status === s).length;
   const approved = all.filter((d) => d.status === 'client_approved').length;
   const excluded = all.filter((d) => d.status === 'excluded').length;
+  const scope = exceptionScope(state, project);
 
   return (
     <div className="space-y-4">
@@ -66,7 +68,7 @@ export const DeliverablesTab: React.FC<TabProps> = ({ project, access }) => {
             {g.suspended && <Pill tone="waiting">الموقع معلّق: {g.suspended.reason}</Pill>}
           </header>
           <Table head={['المخرج', 'القسم', 'مسؤول البند', 'النوع', 'الإصدار', 'الحالة', 'المهلة / المتابعة']}>
-            {g.items.map((d) => <Row key={d.id} d={d} onOpen={open} owners={deliverableOwners(project, d).map((o) => userName(o)).join('، ')} />)}
+            {g.items.map((d) => <Row key={d.id} d={d} onOpen={open} outOfScope={!scope.inScope(d.scopeItemIds)} owners={deliverableOwners(project, d).map((o) => userName(o)).join('، ')} />)}
           </Table>
         </section>
       ))}
@@ -76,7 +78,7 @@ export const DeliverablesTab: React.FC<TabProps> = ({ project, access }) => {
   );
 };
 
-function Row({ d, onOpen, owners }: { d: Deliverable; onOpen: (id: string) => void; owners: string }) {
+function Row({ d, onOpen, owners, outOfScope }: { d: Deliverable; onOpen: (id: string) => void; owners: string; outOfScope: boolean }) {
   const { state } = useStore();
   const cur = d.revisions[d.revisions.length - 1];
   const late = d.status === 'awaiting_client' && d.responseDueAt && !isAfter(d.responseDueAt, state.now);
@@ -85,6 +87,7 @@ function Row({ d, onOpen, owners }: { d: Deliverable; onOpen: (id: string) => vo
       <Td>
         <Id>{d.id}</Id>
         <p className="text-sm font-medium text-ink">{d.title}</p>
+        {outOfScope && <span className="text-[11px] text-st-waiting">خارج نطاق الاستثناء — ينتظر الاعتماد المالي (F15)</span>}
       </Td>
       <Td className="text-sm">{deptName(d.deptCode)}</Td>
       <Td className="text-sm">{owners || <span className="text-xs text-st-waiting">لم يُعيّن</span>}</Td>

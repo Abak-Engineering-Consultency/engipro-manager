@@ -1,5 +1,5 @@
 import type { ISO, RecordLink, Task, UserId } from '../types';
-import { Ctx } from './core';
+import { Ctx, randomHex } from './core';
 
 const tlink = (t: Task) => `/work?task=${t.id}`;
 
@@ -17,14 +17,18 @@ export const taskCommands = {
       ctx.check(!d.technical || p.reviewerId, 'المراجع إلزامي لمهام المخرجات الفنية');
     }
     ctx.check(!p.reviewerId || p.reviewerId !== p.ownerId, 'المراجع غير مسؤول المهمة');
+    // Contributors help; the task still has exactly one owner (F11).
+    const contributors = [...new Set(p.contributors ?? [])].filter((u) => u !== p.ownerId);
+    contributors.forEach((u) => ctx.user(u));
     const t: Task = {
       id: ctx.nextId('TSK'), title: p.title.trim(), ownerId: p.ownerId, creatorId: ctx.actorId as UserId, dueDate: p.dueDate,
       priority: p.priority, status: 'new', link: p.link && p.link.type !== 'none' ? p.link : undefined, reviewerId: p.reviewerId || undefined,
-      contributors: p.contributors ?? [], comments: [], reassignLog: [], source: 'manual', escalations: [], createdAt: ctx.now,
+      contributors, comments: [], attachments: [], reassignLog: [], source: 'manual', escalations: [], createdAt: ctx.now,
     };
     ctx.s.tasks.push(t);
-    ctx.event('task.created', { type: 'task', id: t.id }, `مهمة: ${t.title}`, t.link?.projectId);
+    ctx.event('task.created', { type: 'task', id: t.id }, `مهمة: ${t.title}${contributors.length ? ` — مساهمون: ${contributors.map((u) => ctx.user(u).name).join('، ')}` : ''}`, t.link?.projectId);
     ctx.notify([t.ownerId], { title: `مهمة جديدة: ${t.title}`, link: tlink(t), type: 'task.created' });
+    ctx.notify(contributors, { title: `أُضفت مساهمًا في مهمة: ${t.title}`, body: `المسؤول: ${ctx.user(t.ownerId).name}`, link: tlink(t), type: 'task.contributor_added' });
     return t.id;
   },
 
@@ -113,7 +117,7 @@ export const taskCommands = {
   },
 
   /** Change the due date, priority or reviewer; the owner changes only through task.reassign (TK-08). */
-  'task.update'(ctx: Ctx, p: { taskId: string; dueDate?: ISO; priority?: Task['priority']; reviewerId?: UserId | '' ; reason: string }) {
+  'task.update'(ctx: Ctx, p: { taskId: string; dueDate?: ISO; priority?: Task['priority']; reviewerId?: UserId | ''; contributors?: UserId[]; reason: string }) {
     const t = ctx.task(p.taskId);
     const proj = t.link?.projectId ? ctx.s.projects.find((x) => x.id === t.link!.projectId) : undefined;
     ctx.check([t.ownerId, t.creatorId, proj?.pmId].includes(ctx.actorId as UserId), 'يعدّلها المسؤول أو المنشئ أو مدير المشروع');
@@ -138,9 +142,35 @@ export const taskCommands = {
       changes.push(`المراجع ← ${p.reviewerId ? ctx.user(p.reviewerId).name : 'بلا مراجع'}`);
       t.reviewerId = p.reviewerId || undefined;
     }
+    let added: UserId[] = [];
+    if (p.contributors) {
+      const next = [...new Set(p.contributors)].filter((u) => u !== t.ownerId);
+      next.forEach((u) => ctx.user(u));
+      added = next.filter((u) => !t.contributors.includes(u));
+      const removed = t.contributors.filter((u) => !next.includes(u));
+      if (added.length) changes.push(`أُضيف للمساهمين: ${added.map((u) => ctx.user(u).name).join('، ')}`);
+      if (removed.length) changes.push(`أُزيل من المساهمين: ${removed.map((u) => ctx.user(u).name).join('، ')}`);
+      t.contributors = next;
+    }
     ctx.check(changes.length, 'لا تغيير');
+    ctx.notify(added, { title: `أُضفت مساهمًا في مهمة: ${t.title}`, body: `المسؤول: ${ctx.user(t.ownerId).name}`, link: tlink(t), type: 'task.contributor_added' });
     ctx.event('task.updated', { type: 'task', id: t.id }, `تعديل: ${changes.join('، ')} — ${p.reason}`, t.link?.projectId);
     ctx.notify([t.ownerId, t.creatorId, t.reviewerId], { title: `عُدّلت المهمة: ${t.title}`, body: changes.join('، '), link: tlink(t), type: 'task.updated' });
+  },
+
+  /** TK-03: attachments on the task. Files live in Nextcloud; the task keeps the reference (simulated here). */
+  'task.attach'(ctx: Ctx, p: { taskId: string; files: string[] }) {
+    const t = ctx.task(p.taskId);
+    const me = ctx.actorId as UserId;
+    ctx.check([t.ownerId, t.creatorId, t.reviewerId, ...t.contributors].includes(me), 'يرفق الملفات المسؤول أو المنشئ أو المراجع أو المساهمون');
+    ctx.check(!['completed', 'cancelled'].includes(t.status), 'المهمة منتهية');
+    const names = p.files.map((f) => f.trim()).filter(Boolean);
+    ctx.check(names.length, 'أضف ملفًا واحدًا على الأقل');
+    for (const name of names) {
+      t.attachments.push({ name, fileId: `NC-${randomHex(6)}`, size: `${(0.2 + Math.random() * 4).toFixed(1)} MB`, by: me, at: ctx.now });
+    }
+    ctx.event('task.attached', { type: 'task', id: t.id }, `أُرفق: ${names.join('، ')}`, t.link?.projectId);
+    ctx.notify([t.ownerId, t.creatorId, t.reviewerId, ...t.contributors], { title: `مرفق جديد في: ${t.title}`, body: names.join('، '), link: tlink(t), type: 'task.attached' });
   },
 
   'task.comment'(ctx: Ctx, p: { taskId: string; text: string }) {

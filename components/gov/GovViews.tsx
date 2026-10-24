@@ -4,7 +4,7 @@ import { useLookup, useStore } from '../../app/store';
 import { addCalendarDays, fmtDate } from '../../domain/calendar';
 import { GOV_STATES } from '../../domain/labels';
 import { allows, holds } from '../../domain/permissions';
-import { govTimes, oppOwner } from '../../domain/selectors';
+import { exceptionScope, govTimes, oppOwner } from '../../domain/selectors';
 import type { AppState, GovRound, GovTransaction, User } from '../../domain/types';
 import {
   CommandButton, DateText, Drawer, Empty, Fact, Id, Money, Notice, Pill, Rule, StatePill, Table, Td, Timeline, cn, userOptions,
@@ -121,7 +121,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
       )}
       {isOfficer && ['preparing', 'comments_processing'].includes(g.status) && (
         <CommandButton command="gov.submit" base={base} label={g.rounds.length ? `إعادة التقديم — جولة ${g.rounds.length + 1}` : 'تقديم على المنصة — جولة 1'}
-          intro="الرسوم على العميل أصلًا؛ دفع أباك استثنائيًا يمر بطلب تكلفة إلى مدير الأقسام ثم المالية (GT-05)."
+          intro={<>الرسوم على العميل أصلًا؛ دفع أباك استثنائيًا يمر بطلب تكلفة إلى مدير الأقسام ثم المالية (GT-05).{proj && exceptionScope(state, proj).active && ' المشروع باستثناء الرئيس التنفيذي: لا تُقدَّم إلا معاملات البنود المسموحة قبل الاعتماد المالي (F15).'}</>}
           fields={[
             { name: 'requestNo', label: 'رقم الطلب في المنصة', type: 'text', required: true, initial: g.rounds.at(-1)?.requestNo ?? '' },
             { name: 'feeInvoiceChecked', label: 'تم التحقق من فاتورة الرسوم', type: 'checkbox', initial: true },

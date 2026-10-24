@@ -6,7 +6,7 @@ import { deptName } from '../../domain/catalog';
 import { deliverableOwners, revLabel } from '../../domain/engine/delivery';
 import { DELIVERABLE_STATES } from '../../domain/labels';
 import { allows } from '../../domain/permissions';
-import { oppOwner, type ProjectAccess } from '../../domain/selectors';
+import { exceptionScope, oppOwner, type ProjectAccess } from '../../domain/selectors';
 import type { Deliverable, Project, Revision } from '../../domain/types';
 import { CommandButton, DateText, Drawer, Fact, Id, Money, Notice, Pill, Rule, StatePill, Table, Td, cn } from '../ui';
 
@@ -30,6 +30,8 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
   const client = access === 'client';
   const owners = deliverableOwners(project, d);
   const isOwner = owners.includes(me.id);
+  const scope = exceptionScope(state, project);
+  const outOfScope = !scope.inScope(d.scopeItemIds);
   const isPm = project.pmId === me.id;
   const isReviewer = allows(me, 'deliverable.review', { depts: [d.deptCode] });
   const isOpp = oppOwner(state, project) === me.id;
@@ -46,7 +48,7 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
 
   const actions = d.requiresGov ? null : (
     <>
-      {isOwner && d.status === 'in_preparation' && (
+      {isOwner && d.status === 'in_preparation' && !outOfScope && (
         <CommandButton command="deliverable.upload" base={base} variant={current?.files.length ? 'secondary' : 'primary'}
           label={current?.files.length && !current.issued ? `تحديث ملفات ${revLabel(current.rev)}` : `رفع ملفات ${revLabel(current && !current.issued ? current.rev : (current ? current.rev + 1 : 0))}`}
           intro="ملف العمل قابل للتحديث حتى يصدر الإصدار؛ كل ملف يُسجَّل بمعرّف Nextcloud وبصمة (NX-04)."
@@ -130,6 +132,11 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       actions={actions}
     >
       <div className="space-y-5">
+        {outOfScope && !client && (
+          <Notice tone="waiting" title="خارج نطاق استثناء الرئيس التنفيذي — ينتظر الاعتماد المالي">
+            المسموح قبل الاعتماد المالي: {project.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ') || '—'} ({scope.exception?.id}). يُفتح العمل على هذا المخرج وتقديم معاملته وتكاليفه بعد اعتماد المالية للتفعيل. <Rule>F15</Rule>
+          </Notice>
+        )}
         {d.requiresGov && (
           <Notice tone="progress" title="يُعتمد هذا المخرج بصدور المعاملة الحكومية">
             {gov ? <>المعاملة <Link className="underline" to={`/gov?id=${gov.id}`}>{gov.id}</Link> — {gov.procedureType} لدى {gov.authority}. لا رفع ملفات هنا؛ الصدور يسجّل الوثيقة ويفحص شرط الدفعة. <Rule>GT-11</Rule></> : 'تُنشأ المعاملة عند بدء التنفيذ.'}

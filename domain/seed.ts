@@ -4,7 +4,7 @@ import { Ctx } from './engine/core';
 import { tick } from './engine/scheduler';
 import type { AppState, Deliverable, Grant, PaymentItem, Quotation, RoleId, Settings, User } from './types';
 
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 export const BASE_NOW = '2026-10-25T06:00:00.000Z'; // Sunday 09:00, Riyadh
 
 /** «سامي القحطاني» → «س ق»: the family name's initial skips the article «ال». */

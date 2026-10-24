@@ -233,21 +233,55 @@ ok(tk.creatorId, 'task.update', { taskId: tk.id, priority: 'high', reason: 'أو
 expect(s.tasks.find((t) => t.id === tk.id)!.priority === 'high' && s.events.some((e) => e.type === 'task.updated'), 'task edit logged with a reason');
 
 // ── Exception, closure, cancellation (AC-03, AC-08, AC-13, AC-14) ───────────────
-section('CEO exception (AC-03)');
-refused('u_arc_e', 'exception.request', { opportunityId: 'OPP-2026-0150', reason: 'x', commitmentDoc: 'x', allowedScope: 'x', durationDays: 30, costCap: 10_000 }, 'an engineer cannot request an exception');
-const exc = ok('u_str_m', 'exception.request', { opportunityId: 'OPP-2026-0150', reason: 'موعد مدن', commitmentDoc: 'أمر شراء PO-7781', allowedScope: 'التصميم الإنشائي فقط', durationDays: 30, costCap: 10_000 }) as string;
+section('CEO exception: allowed scope and cost cap (AC-03, F15)');
+const excBase = { opportunityId: 'OPP-2026-0150', reason: 'موعد مدن', commitmentDoc: 'أمر شراء PO-7781', allowedScope: 'التصميم الإنشائي فقط', durationDays: 30, costCap: 10_000 };
+refused('u_arc_e', 'exception.request', { ...excBase, allowedLineIds: ['Q022-L2'] }, 'an engineer cannot request an exception');
+refused('u_str_m', 'exception.request', { ...excBase, allowedLineIds: [] }, 'the allowed scope must name quotation lines');
+refused('u_str_m', 'exception.request', { ...excBase, allowedLineIds: ['Q003-L1'] }, 'allowed lines must belong to this opportunity');
+const exc = ok('u_str_m', 'exception.request', { ...excBase, allowedLineIds: ['Q022-L2'] }) as string;
 refused('u_dod', 'exception.decide', { exceptionId: exc, decision: 'granted', note: '' }, 'only the CEO grants the exception');
 const ep = ok('u_ceo', 'exception.decide', { exceptionId: exc, decision: 'granted', note: 'مسموح بحدود السقف' }) as string;
 ok('u_dod', 'project.receive', { projectId: ep, leadDept: 'STR', departments: ['STR', 'MOD'] });
 ok('u_str_m', 'project.nominate_pm', { projectId: ep, nomineeId: 'u_str_e' });
 ok('u_dod', 'project.decide_pm', { projectId: ep, decision: 'approved' });
-ok('u_str_e', 'cost.create', { projectId: ep, service: 'رفع مساحي', reason: 'x', kind: 'planned', amount: 8_000, vendor: 'v', quoteRef: 'q', paymentTerms: 't', bearer: 'abak', payer: 'abak' });
+const strItem = project(ep).scopeItems.find((i) => i.sourceLineId === 'Q022-L2')!.id;
+const modItem = project(ep).scopeItems.find((i) => i.sourceLineId === 'Q022-L1')!.id;
+const costBase = { projectId: ep, reason: 'x', kind: 'planned' as const, vendor: 'v', quoteRef: 'q', paymentTerms: 't', bearer: 'abak' as const, payer: 'abak' as const };
+refused('u_str_e', 'cost.create', { ...costBase, service: 'رسوم مدن', amount: 3_000, scopeItemId: modItem }, 'F15 a cost outside the allowed scope is refused');
+refused('u_str_e', 'cost.create', { ...costBase, service: 'بلا بند', amount: 3_000 }, 'F15 a cost with no item is refused under an exception');
+ok('u_str_e', 'cost.create', { ...costBase, service: 'رفع مساحي', amount: 8_000, scopeItemId: strItem });
 ok('u_dod', 'cost.decide', { costId: s.costs.at(-1)!.id, decision: 'approved', note: '' });
-refused('u_str_e', 'cost.create', { projectId: ep, service: 'مهندس مستقل', reason: 'x', kind: 'planned', amount: 5_000, vendor: 'v', quoteRef: 'q', paymentTerms: 't', bearer: 'abak', payer: 'abak' }, 'AC-03 above the exception cost cap');
+refused('u_str_e', 'cost.create', { ...costBase, service: 'مهندس مستقل', amount: 5_000, scopeItemId: strItem }, 'AC-03 above the exception cost cap');
+ok('u_str_m', 'project.assign_owner', { projectId: ep, scopeItemId: strItem, ownerId: 'u_str_e' });
+ok('u_mod_m', 'project.assign_owner', { projectId: ep, scopeItemId: modItem, ownerId: 'u_mod_e' });
+ok('u_str_e', 'project.submit_payment_links', {
+  projectId: ep, links: [
+    { paymentId: pay(ep, 'مقدمة').id, kind: 'none', ids: [] },
+    { paymentId: pay(ep, 'مدن').id, kind: 'deliverables', ids: [dl(ep, 'مخططات معتمدة من مدن').id] },
+  ],
+});
+ok('u_fin', 'project.decide_payment_links', { projectId: ep, decision: 'confirmed' });
+ok('u_str_e', 'project.start', { projectId: ep });
+refused('u_mod_e', 'deliverable.upload', { deliverableId: dl(ep, 'ملف تقديم المخططات لمدن').id, files: ['modon.pdf'] }, 'F15 work outside the allowed scope waits for finance approval');
+ok('u_str_e', 'deliverable.upload', { deliverableId: dl(ep, 'المخططات الإنشائية').id, files: ['str.pdf'] });
 tick(7);
 expect(s.notifications.some((n) => n.eventType === 'exception.weekly_alert' && n.userId === 'u_ceo'), 'weekly CEO alert while finance approval is pending');
 ok('u_fin', 'activation.approve', { activationId: 'ACT-2026-0032' });
 expect(s.projects.filter((p) => p.opportunityId === 'OPP-2026-0150').length === 1 && s.exceptions.find((e) => e.id === exc)!.status === 'linked', 'finance approval links to the same project');
+ok('u_mod_e', 'deliverable.upload', { deliverableId: dl(ep, 'ملف تقديم المخططات لمدن').id, files: ['modon.pdf'] });
+expect(true, 'F15 the scope limit lifts once finance approval is linked');
+
+section('Task contributors and attachments (TK-03)');
+refused('u_dod', 'task.create', { title: 'x', ownerId: 'u_arc_m', dueDate: s.now, priority: 'low', reviewerId: 'u_arc_m' }, 'reviewer cannot be the owner');
+const ct = ok('u_dod', 'task.create', { title: 'تجهيز ملف تأهيل المكتب لمنافسة', ownerId: 'u_arc_m', dueDate: s.now, priority: 'medium', contributors: ['u_arc_e', 'u_arc_m', 'u_str_m'] }) as string;
+const ctask = () => s.tasks.find((t) => t.id === ct)!;
+expect(ctask().ownerId === 'u_arc_m' && ctask().contributors.join() === 'u_arc_e,u_str_m', 'one owner; the owner is not also a contributor');
+expect(s.notifications.some((n) => n.userId === 'u_str_m' && n.eventType === 'task.contributor_added'), 'contributors are told');
+ok('u_arc_e', 'task.attach', { taskId: ct, files: ['شهادة التصنيف.pdf', 'سابقة أعمال.pdf'] });
+refused('u_fin', 'task.attach', { taskId: ct, files: ['x.pdf'] }, 'outsiders cannot attach');
+expect(ctask().attachments.length === 2 && ctask().attachments.every((a) => a.fileId.startsWith('NC-') && a.by === 'u_arc_e'), 'attachments recorded with who and a file reference');
+ok('u_dod', 'task.update', { taskId: ct, contributors: ['u_arc_e'], reason: 'لم يعد القسم الإنشائي مطلوبًا' });
+expect(ctask().contributors.join() === 'u_arc_e' && s.events.some((e) => e.type === 'task.updated' && e.summary.includes('أُزيل من المساهمين')), 'contributor removal is logged');
 
 section('Closure chain, collections after closure (AC-08, AC-13)');
 const soil = s.projects.find((p) => p.opportunityId === 'OPP-2026-0076')!.id;

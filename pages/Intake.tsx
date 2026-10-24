@@ -170,6 +170,11 @@ function Exceptions() {
     .filter((o, i, arr): o is NonNullable<typeof o> => !!o && arr.findIndex((x) => x?.id === o.id) === i)
     // An opportunity that already has its project (a paid addition waiting for finance) needs no exception.
     .filter((o) => !state.projects.some((p) => p.opportunityId === o.id));
+  const lineOptions = opportunities.flatMap((o) => {
+    const act = state.activations.find((a) => a.opportunityId === o.id && a.status === 'pending_finance');
+    const q = state.quotations.find((x) => x.id === act?.quotationId);
+    return (q?.lines ?? []).map((l) => ({ value: l.id, label: `${o.id} — ${l.title} (${deptName(l.deptCode)})` }));
+  });
   return (
     <>
       <Notice tone="danger" title="الاستثناء الوحيد قبل الاعتماد المالي">
@@ -185,7 +190,8 @@ function Exceptions() {
               { name: 'opportunityId', label: 'الفرصة', type: 'select', options: opportunities.map((o) => ({ value: o.id, label: `${o.id} — ${o.title}` })), required: true },
               { name: 'reason', label: 'السبب', type: 'textarea', required: true },
               { name: 'commitmentDoc', label: 'مستند التعميد القائم', type: 'text', required: true, placeholder: 'أمر شراء / عقد موقع / خطاب تعميد' },
-              { name: 'allowedScope', label: 'النطاق المسموح', type: 'text', required: true },
+              { name: 'allowedLineIds', label: 'بنود العرض المسموح العمل عليها قبل الاعتماد المالي', type: 'multiselect', options: lineOptions, required: true, hint: 'اختر بنود الفرصة نفسها. التكاليف والعمل والمعاملات خارج هذه البنود تنتظر الاعتماد المالي (F15).' },
+              { name: 'allowedScope', label: 'وصف النطاق المسموح', type: 'text', required: true },
               { name: 'durationDays', label: 'المدة (يوم)', type: 'number', initial: 30, required: true },
               { name: 'costCap', label: 'سقف التكلفة (ر.س)', type: 'number', initial: 20000, required: true },
             ]}
@@ -235,7 +241,12 @@ function ExceptionCard({ e }: { e: CeoException }) {
       <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Fact label="السبب">{e.reason}</Fact>
         <Fact label="مستند التعميد">{e.commitmentDoc}</Fact>
-        <Fact label="النطاق المسموح">{e.allowedScope}</Fact>
+        <Fact label="النطاق المسموح">
+          {e.allowedScope}
+          <span className="block text-xs text-muted">
+            {(state.quotations.find((q) => q.id === e.quotationId)?.lines ?? []).filter((l) => e.allowedLineIds.includes(l.id)).map((l) => l.title).join('، ')}
+          </span>
+        </Fact>
         <Fact label="المدة">{e.durationDays} يوم</Fact>
         <Fact label="سقف التكلفة / المستخدم">
           <span className={used > e.costCap * 0.8 ? 'text-st-waiting' : ''}><Money v={e.costCap} /> / <Money v={used} /></span>

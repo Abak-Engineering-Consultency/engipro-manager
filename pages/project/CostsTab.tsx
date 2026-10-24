@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { COST_STATES } from '../../domain/labels';
+import { exceptionScope } from '../../domain/selectors';
 import { COST_KINDS, CostDrawer, committed, exceptionCap } from '../../components/finance/CostViews';
 import { CommandButton, Empty, Id, Kpi, Money, Notice, Progress, Rule, StatePill, Table, Td } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
@@ -18,6 +19,7 @@ export const CostsTab: React.FC<TabProps> = ({ project }) => {
   const paid = costs.reduce((s, c) => s + c.paid, 0);
   const planned = costs.filter((c) => committed(c) && c.plannedEstimate).reduce((s, c) => s + (c.amount - (c.plannedEstimate ?? 0)), 0);
   const cap = exceptionCap(state, project);
+  const scope = exceptionScope(state, project);
   const isPm = project.pmId === me.id;
   const open = (id: string | null) => {
     const next = new URLSearchParams(params);
@@ -48,7 +50,8 @@ export const CostsTab: React.FC<TabProps> = ({ project }) => {
           <CommandButton command="cost.create" base={{ projectId: project.id }} label="طلب تكلفة" icon={<Plus size={14} />} title="طلب تكلفة مشروع"
             fields={[
               { name: 'service', label: 'الخدمة', type: 'text', required: true, placeholder: 'فحص تربة / تصميم خارجي / مهندس مستقل…' },
-              { name: 'scopeItemId', label: 'البند المرتبط', type: 'select', options: [{ value: '', label: '— بلا بند —' }, ...project.scopeItems.map((i) => ({ value: i.id, label: i.title }))] },
+              { name: 'scopeItemId', label: 'البند المرتبط', type: 'select', options: [{ value: '', label: '— بلا بند —' }, ...project.scopeItems.map((i) => ({ value: i.id, label: i.title }))],
+                hint: scope.active ? `المشروع باستثناء: التكلفة تُقبل على البنود المسموحة فقط قبل الاعتماد المالي — ${project.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ')} (F15).` : undefined },
               { name: 'reason', label: 'السبب', type: 'textarea', required: true },
               { name: 'kind', label: 'النوع', type: 'select', options: [{ value: 'planned', label: 'مخططة (ضمن التقدير)' }, { value: 'unplanned', label: 'غير مخططة' }, { value: 'over_estimate', label: 'تجاوز تقدير' }] },
               { name: 'justification', label: 'المبرر (إلزامي لغير المخطط وتجاوز التقدير)', type: 'textarea' },

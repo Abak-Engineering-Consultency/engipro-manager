@@ -89,6 +89,7 @@ export const deliveryCommands = {
     ctx.require('deliverable.prepare', { own: deliverableOwners(proj, d).includes(ctx.actorId as UserId) });
     ctx.check(!d.requiresGov, 'هذا المخرج يُعتمد بصدور المعاملة الحكومية، لا برفع ملفات (GT-11)');
     ctx.check(d.status === 'in_preparation', 'الرفع متاح والمخرج قيد الإعداد');
+    ctx.requireExceptionScope(proj, d.scopeItemIds, 'العمل على هذا المخرج');
     ctx.check(p.files.some((f) => f.trim()), 'أضف ملفًا واحدًا على الأقل');
     let r = current(d);
     if (!r || r.issued) {
@@ -153,6 +154,7 @@ export const deliveryCommands = {
     ctx.require('deliverable.deliver', { own: ctx.isPm(proj) });
     ctx.check(d.status === 'ready_for_delivery', 'المخرج ليس جاهزًا للتسليم');
     ctx.check(proj.status === 'in_progress', 'التسليم أثناء التنفيذ فقط');
+    ctx.requireExceptionScope(proj, d.scopeItemIds, 'تسليم هذا المخرج');
     ctx.check(p.channel.trim() && p.recipient.trim(), 'القناة والمستلم مطلوبان');
     const unpaid = ctx.s.payments.filter((x) => x.beforeDeliveryOf?.includes(d.id) && x.collection !== 'fully_collected');
     if (unpaid.length && !d.ceoRelease) {

@@ -198,19 +198,22 @@ export const projectCommands = {
     return proj.id;
   },
 
-  'exception.request'(ctx: Ctx, p: { opportunityId: string; reason: string; commitmentDoc: string; allowedScope: string; durationDays: number; costCap: number }) {
+  'exception.request'(ctx: Ctx, p: { opportunityId: string; reason: string; commitmentDoc: string; allowedScope: string; allowedLineIds: string[]; durationDays: number; costCap: number }) {
     const me = ctx.me;
     ctx.check(me.roleId === 'dept_manager' || me.roleId === 'main_dept_manager', 'يرفع طلب الاستثناء مدير القسم أو مدير الأقسام');
     const act = ctx.s.activations.find((a) => a.opportunityId === p.opportunityId && a.status === 'pending_finance');
     ctx.check(act, 'لا يوجد طلب تفعيل بانتظار المالية لهذه الفرصة');
     ctx.check(!ctx.s.projects.some((x) => x.opportunityId === p.opportunityId), 'للفرصة مشروع قائم — لا استثناء ينشئ مشروعًا ثانيًا (F1)');
     ctx.check(!ctx.s.exceptions.some((e) => e.opportunityId === p.opportunityId && ['requested', 'granted'].includes(e.status)), 'يوجد استثناء قائم لهذه الفرصة');
-    ctx.check(p.reason.trim() && p.commitmentDoc.trim() && p.allowedScope.trim(), 'السبب ومستند التعميد والنطاق المسموح مطلوبة');
+    ctx.check(p.reason.trim() && p.commitmentDoc.trim() && p.allowedScope.trim(), 'السبب ومستند التعميد ووصف النطاق المسموح مطلوبة');
+    const lines = ctx.s.quotations.find((q) => q.id === act.quotationId)?.lines ?? [];
+    ctx.check(p.allowedLineIds?.length, 'حدد بنود العرض المسموح العمل عليها قبل الاعتماد المالي');
+    ctx.check(p.allowedLineIds.every((id) => lines.some((l) => l.id === id)), 'البنود المسموحة يجب أن تكون من عرض نفس الفرصة');
     ctx.check(p.durationDays > 0 && p.costCap > 0, 'المدة وسقف التكلفة مطلوبان');
     const id = ctx.nextId('EXC');
     ctx.s.exceptions.push({
       id, opportunityId: p.opportunityId, quotationId: act.quotationId, requestedBy: me.id, requestedAt: ctx.now,
-      reason: p.reason, commitmentDoc: p.commitmentDoc, allowedScope: p.allowedScope, durationDays: p.durationDays,
+      reason: p.reason, commitmentDoc: p.commitmentDoc, allowedScope: p.allowedScope, allowedLineIds: p.allowedLineIds, durationDays: p.durationDays,
       costCap: p.costCap, status: 'requested', renewals: [],
     });
     ctx.event('exception.requested', { type: 'exception', id }, `طلب استثناء بدء قبل الاعتماد المالي: ${p.reason}`);

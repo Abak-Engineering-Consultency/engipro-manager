@@ -5,7 +5,7 @@ import { useLookup, useStore } from '../../app/store';
 import { daysBetween, fmtDate } from '../../domain/calendar';
 import { deptName } from '../../domain/catalog';
 import { GOV_STATES, PROJECT_STATES, SUSPENSION_TYPES } from '../../domain/labels';
-import { projectAccess, projectBar, projectProgress, startGate, type ProjectAccess } from '../../domain/selectors';
+import { exceptionScope, projectAccess, projectBar, projectProgress, startGate, type ProjectAccess } from '../../domain/selectors';
 import type { Project, ProjectState } from '../../domain/types';
 import { Card, cn, Empty, Id, Pill, Progress, Rule, StatePill, Tabs } from '../../components/ui';
 import { OverviewTab } from './OverviewTab';
@@ -148,7 +148,7 @@ export const ProjectPage: React.FC = () => {
         )}
         {exc && exc.status !== 'linked' && (
           <div className="flex flex-wrap items-center gap-2 border-t border-line bg-st-danger-bg px-4 py-2 text-sm text-st-danger">
-            <Clock size={16} /> يعمل باستثناء الرئيس التنفيذي ({exc.id}) حتى {fmtDate(exc.expiresAt)} — سقف التكلفة {exc.costCap.toLocaleString('en')} ر.س، النطاق: {exc.allowedScope} <Rule>F15</Rule>
+            <Clock size={16} /> يعمل باستثناء الرئيس التنفيذي ({exc.id}) حتى {fmtDate(exc.expiresAt)} — سقف التكلفة {exc.costCap.toLocaleString('en')} ر.س، البنود المسموحة: {project.scopeItems.filter((i) => exceptionScope(state, project).allowedItemIds.includes(i.id)).map((i) => i.title).join('، ') || '—'} ({exc.allowedScope}). ما عداها ينتظر الاعتماد المالي <Rule>F15</Rule>
           </div>
         )}
       </Card>

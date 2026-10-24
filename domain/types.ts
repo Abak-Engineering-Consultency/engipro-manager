@@ -132,6 +132,8 @@ export interface CeoException {
   reason: string;
   commitmentDoc: string;
   allowedScope: string;
+  /** Quotation lines the work may cover before finance approval (F15); everything else waits. */
+  allowedLineIds: string[];
   durationDays: number;
   costCap: number;
   status: 'requested' | 'granted' | 'rejected' | 'expired' | 'linked';
@@ -471,6 +473,7 @@ export interface Task {
   reviewerId?: UserId;
   contributors: UserId[];
   comments: { by: UserId; at: ISO; text: string }[];
+  attachments: { name: string; fileId: string; size: string; by: UserId; at: ISO }[];
   blockReason?: { type: 'client' | 'authority' | 'task' | 'payment' | 'other'; note: string; since: ISO };
   result?: string;
   reviewNote?: string;

@@ -1,4 +1,5 @@
 import { allows, PERMISSIONS, type ScopeContext } from '../permissions';
+import { exceptionScope } from '../selectors';
 import type {
   AppState, CostRequest, Deliverable, GovTransaction, ISO, PaymentItem, Perm, Project, RecordLink, Task, User, UserId, Visit,
 } from '../types';
@@ -152,6 +153,14 @@ export class Ctx {
     return p.followUpOwnerId;
   }
 
+  /** F15 / A2: under a CEO exception, work outside the allowed quotation lines waits for finance approval. */
+  requireExceptionScope(p: Project, itemIds: (string | undefined)[], what: string) {
+    const scope = exceptionScope(this.s, p);
+    if (scope.inScope(itemIds)) return;
+    const allowed = p.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ');
+    this.fail(`${what} خارج النطاق المسموح في استثناء الرئيس التنفيذي (${scope.exception?.id}) — المسموح قبل الاعتماد المالي: ${allowed || '—'}`);
+  }
+
   isPm(p: Project) {
     return this.actorId !== 'system' && p.pmId === this.actorId;
   }
@@ -193,6 +202,7 @@ export class Ctx {
       link: input.link,
       contributors: [],
       comments: [],
+      attachments: [],
       reassignLog: [],
       dedupeKey: input.dedupeKey,
       source: input.source,

@@ -19,6 +19,22 @@ export function startGate(s: AppState, p: Project): string[] {
   return reasons;
 }
 
+/**
+ * F15 / A2: while a project runs on a CEO exception (finance approval not yet linked), only the
+ * quotation lines the exception allows may be worked on. `inScope` answers for a set of items.
+ */
+export function exceptionScope(s: AppState, p: Project) {
+  const exc = p.exceptionId ? s.exceptions.find((e) => e.id === p.exceptionId) : undefined;
+  const active = !!exc && ['granted', 'expired'].includes(exc.status);
+  const allowed = new Set(active ? p.scopeItems.filter((i) => i.sourceLineId && exc!.allowedLineIds.includes(i.sourceLineId)).map((i) => i.id) : []);
+  return {
+    active,
+    exception: exc,
+    allowedItemIds: [...allowed],
+    inScope: (itemIds: (string | undefined)[]) => !active || (itemIds.length > 0 && itemIds.every((id) => !!id && allowed.has(id))),
+  };
+}
+
 /** SC-02: progress is work done (deliverables), never elapsed time. */
 export function projectProgress(s: AppState, p: Project): number {
   const ds = s.deliverables.filter((d) => d.projectId === p.id && d.status !== 'excluded');

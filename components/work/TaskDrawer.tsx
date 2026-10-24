@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeftRight, Ban, CheckCircle2, MessageSquare, Pause, Play, Plus, RotateCcw, Send, UserCheck } from 'lucide-react';
+import { ArrowLeftRight, Ban, CheckCircle2, MessageSquare, Paperclip, Pause, Play, Plus, RotateCcw, Send, UserCheck } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { addCalendarDays, fmtDateTime } from '../../domain/calendar';
 import { BLOCK_TYPES, TASK_STATES } from '../../domain/labels';
 import { holds } from '../../domain/permissions';
 import type { RecordLink } from '../../domain/types';
-import { Button, CommandButton, DateText, Drawer, Fact, Id, Notice, PersonChip, Pill, Rule, StatePill, Textarea, Timeline, userOptions } from '../ui';
+import { Button, CommandButton, DateText, Drawer, Fact, Id, Notice, PersonChip, Pill, Rule, StatePill, Table, Td, Textarea, Timeline, userOptions } from '../ui';
 import { recordHref, recordOptions, RECORD_TYPE_NAMES, toRecordLink } from './records';
 import { isOverdue, PRIORITY, SOURCE_NAMES } from './TaskViews';
 
@@ -41,6 +41,7 @@ export function NewTaskButton({ presetLink, label = 'مهمة جديدة', varia
         { name: 'priority', label: 'الأولوية', type: 'select', options: PRIORITY_OPTIONS },
         { name: 'record', label: 'السجل المرتبط (اختياري)', type: 'select', options, initial: preset, hint: 'المهمة قد ترتبط بمشروع أو مخرج أو معاملة أو زيارة أو فرصة، أو تبقى مستقلة (TK-01).' },
         { name: 'reviewerId', label: 'المراجع', type: 'select', options: [{ value: '', label: '— دون مراجع —' }, ...userOptions(state.users)], initial: '', hint: 'إلزامي إذا ارتبطت المهمة بمخرج فني (TK-06)، ويجب أن يكون غير المسؤول.' },
+        { name: 'contributors', label: 'المساهمون (اختياري)', type: 'multiselect', options: userOptions(state.users), hint: 'يرون المهمة ويعلّقون ويرفقون الملفات، والمسؤولية تبقى على المسؤول وحده.' },
       ]}
       transform={(v) => ({
         title: v.title,
@@ -48,6 +49,7 @@ export function NewTaskButton({ presetLink, label = 'مهمة جديدة', varia
         dueDate: v.dueDate,
         priority: v.priority,
         reviewerId: v.reviewerId || undefined,
+        contributors: v.contributors,
         link: toRecordLink(state, v.record),
       })}
       onDone={(id) => onCreated?.(String(id))}
@@ -74,6 +76,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
   const open = !['completed', 'cancelled'].includes(task.status);
   const canReassign = open && [task.ownerId, task.creatorId, proj?.pmId].includes(me.id);
   const canCancel = open && [task.ownerId, task.creatorId].includes(me.id);
+  const canAttach = open && [task.ownerId, task.creatorId, task.reviewerId, ...task.contributors].includes(me.id);
   const base = { taskId: task.id };
   const href = recordHref(task.link);
 
@@ -120,14 +123,22 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       )}
       {canReassign && (
         <CommandButton
-          command="task.update" base={base} label="تعديل الموعد / الأولوية / المراجع" variant="secondary" success="عُدّلت المهمة وأُبلغ المعنيون"
+          command="task.update" base={base} label="تعديل الموعد / الأولوية / المراجع / المساهمين" variant="secondary" success="عُدّلت المهمة وأُبلغ المعنيون"
           intro={<>المسؤول لا يتغير هنا — استخدم «تغيير المسؤول» <Rule>TK-03</Rule></>}
           fields={[
             { name: 'dueDate', label: 'الموعد', type: 'date', initial: task.dueDate },
             { name: 'priority', label: 'الأولوية', type: 'select', initial: task.priority, options: [{ value: 'low', label: 'منخفضة' }, { value: 'medium', label: 'متوسطة' }, { value: 'high', label: 'عالية' }] },
             { name: 'reviewerId', label: 'المراجع', type: 'select', initial: task.reviewerId ?? '', options: [{ value: '', label: 'بلا مراجع' }, ...userOptions(state.users, (u) => u.id !== task.ownerId)] },
+            { name: 'contributors', label: 'المساهمون', type: 'multiselect', initial: task.contributors, options: userOptions(state.users, (u) => u.id !== task.ownerId) },
             { name: 'reason', label: 'سبب التعديل', type: 'textarea', required: true },
           ]}
+        />
+      )}
+      {canAttach && (
+        <CommandButton
+          command="task.attach" base={base} label="إرفاق ملفات" variant="secondary" icon={<Paperclip size={14} />} success="أُرفقت الملفات وأُبلغ المعنيون"
+          intro="تُحفظ المرفقات في Nextcloud ضمن مجلد السجل المرتبط، ويُسجَّل لكل ملف معرّفه ومن أرفقه ومتى (NX-04)."
+          fields={[{ name: 'files', label: 'أسماء الملفات (سطر لكل ملف)', type: 'lines', required: true, placeholder: `${task.id}-ملاحظات.pdf` }]}
         />
       )}
       {canCancel && (
@@ -208,6 +219,24 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
             </ul>
           </section>
         )}
+
+        <section>
+          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink"><Paperclip size={15} /> المرفقات</h4>
+          {task.attachments.length ? (
+            <Table head={['الملف', 'معرّف Nextcloud', 'الحجم', 'أرفقه']}>
+              {task.attachments.map((f) => (
+                <tr key={f.fileId}>
+                  <Td><bdi>{f.name}</bdi></Td>
+                  <Td><span className="ltr-iso text-xs text-muted">{f.fileId}</span></Td>
+                  <Td className="text-xs">{f.size}</Td>
+                  <Td className="text-xs">{userName(f.by)} · {fmtDateTime(f.at)}</Td>
+                </tr>
+              ))}
+            </Table>
+          ) : (
+            <p className="text-sm text-muted">لا توجد مرفقات.</p>
+          )}
+        </section>
 
         {task.reassignLog.length > 0 && (
           <section>

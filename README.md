@@ -16,7 +16,7 @@
 npm install
 npm run dev          # http://localhost:3000
 npm run typecheck    # TypeScript strict
-npm run journeys     # يشغّل رحلات الاختبار الست ومعايير القبول على المحرّك (67 فحصًا)
+npm run journeys     # يشغّل رحلات الاختبار الست ومعايير القبول على المحرّك (79 فحصًا)
 npm run build
 ```
 
@@ -25,7 +25,7 @@ npm run build
 ```sh
 npm run build && npm run preview -- --port 4173
 node scripts/ui-journey-1.cjs http://localhost:4173 ./shots       # الرحلة 1 حتى Rev 01 بعد ملاحظات العميل
-node scripts/ui-journeys-2-6.cjs http://localhost:4173 ./shots    # الرحلات 2–6 واستثناء الرئيس التنفيذي وسلسلة الإغلاق (51 خطوة)
+node scripts/ui-journeys-2-6.cjs http://localhost:4173 ./shots    # الرحلات 2–6 واستثناء الرئيس التنفيذي ومساهمو المهام ومرفقاتها وسلسلة الإغلاق (61 خطوة)
 ```
 
 ## طريقة التجربة

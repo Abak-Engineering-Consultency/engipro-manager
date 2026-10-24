@@ -19,7 +19,7 @@ const KIND: Record<DerivedAction['kind'], { label: string; tone: 'waiting' | 'pr
   review: { label: 'مراجعة', tone: 'waiting' },
 };
 
-type TaskTab = 'mine' | 'created' | 'review' | 'overdue';
+type TaskTab = 'mine' | 'created' | 'review' | 'contributing' | 'overdue';
 type View = 'list' | 'board' | 'calendar';
 
 const VIEWS: { id: View; label: string; icon: React.ReactNode }[] = [
@@ -55,6 +55,7 @@ export const MyWork: React.FC = () => {
       mine: state.tasks.filter((t) => t.ownerId === me.id && keep(t)),
       created: state.tasks.filter((t) => t.creatorId === me.id && t.ownerId !== me.id && keep(t)),
       review: state.tasks.filter((t) => t.reviewerId === me.id && (t.status === 'in_review' || (showClosed && !isOpen(t)))),
+      contributing: state.tasks.filter((t) => t.contributors.includes(me.id) && keep(t)),
       overdue: state.tasks.filter((t) => [t.ownerId, t.creatorId, t.reviewerId].includes(me.id) && isOverdue(t, state.now)),
     };
   }, [state, me, showClosed]);
@@ -139,6 +140,7 @@ export const MyWork: React.FC = () => {
               { id: 'mine', label: 'المسندة إليّ', count: lists.mine.filter(isOpen).length },
               { id: 'created', label: 'أنشأتها لغيري', count: lists.created.filter(isOpen).length },
               { id: 'review', label: 'أراجعها', count: lists.review.filter((t) => t.status === 'in_review').length },
+              { id: 'contributing', label: 'أساهم فيها', count: lists.contributing.filter(isOpen).length },
               { id: 'overdue', label: 'المتأخرة', count: lists.overdue.length },
             ]}
             value={tab}
