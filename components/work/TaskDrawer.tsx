@@ -16,7 +16,7 @@ const PRIORITY_OPTIONS = [
   { value: 'low', label: 'منخفضة' },
 ];
 
-/** TK-03: create a task — one owner, due date, priority, optional linked record and reviewer. */
+/** Create a task — one owner, due date, priority, optional linked record and reviewer. */
 export function NewTaskButton({ presetLink, label = 'مهمة جديدة', variant = 'primary', onCreated }: { presetLink?: RecordLink; label?: string; variant?: 'primary' | 'secondary'; onCreated?: (id: string) => void }) {
   const { state, me } = useStore();
   if (!holds(me, 'task.manage')) return null;
@@ -33,7 +33,7 @@ export function NewTaskButton({ presetLink, label = 'مهمة جديدة', varia
       size="md"
       icon={<Plus size={16} />}
       success="أُنشئت المهمة وأُبلغ المسؤول"
-      intro={<>مسؤول واحد لكل مهمة. المهمة لا تنفّذ اعتمادًا ولا تؤكد تحصيلًا — القرار الرسمي يبقى في سجله.</>}
+      intro={<>لكل مهمة مسؤول واحد. الاعتمادات والتحصيل تُسجَّل في سجلاتها لا في المهام.</>}
       fields={[
         { name: 'title', label: 'عنوان المهمة', type: 'text', required: true },
         { name: 'ownerId', label: 'المسؤول (شخص واحد)', type: 'select', options: userOptions(state.users), initial: me.id, required: true },
@@ -137,7 +137,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       {canAttach && (
         <CommandButton
           command="task.attach" base={base} label="إرفاق ملفات" variant="secondary" icon={<Paperclip size={14} />} success="أُرفقت الملفات وأُبلغ المعنيون"
-          intro="تُحفظ المرفقات في Nextcloud ضمن مجلد السجل المرتبط، ويُسجَّل لكل ملف معرّفه ومن أرفقه ومتى."
+          intro="تُحفظ في Nextcloud ضمن مجلد السجل المرتبط."
           fields={[{ name: 'files', label: 'أسماء الملفات (سطر لكل ملف)', type: 'lines', required: true, placeholder: `${task.id}-ملاحظات.pdf` }]}
         />
       )}
@@ -145,7 +145,6 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
         <CommandButton
           command="task.cancel" base={base} label="إلغاء" variant="secondary" icon={<Ban size={14} />} success="أُلغيت المهمة"
           fields={[{ name: 'reason', label: 'سبب الإلغاء الموثق', type: 'textarea', required: true }]}
-          
         />
       )}
     </>
@@ -163,23 +162,23 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       onClose={onClose}
       title={
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Id>{task.id}</Id>
+          <h2 className="text-lg font-semibold text-ink">{task.title}</h2>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <StatePill s={TASK_STATES[task.status]} />
             <Pill tone={PRIORITY[task.priority].tone}>أولوية {PRIORITY[task.priority].label}</Pill>
             {isOverdue(task, state.now) && <Pill tone="danger">متأخرة</Pill>}
+            <Id>{task.id}</Id>
           </div>
-          <h2 className="mt-1 text-base font-semibold text-ink">{task.title}</h2>
         </div>
       }
       actions={actions}
     >
-      <div className="space-y-5">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+      <div className="space-y-6">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Fact label="المسؤول"><PersonChip user={user(task.ownerId)} sub={user(task.ownerId)?.title} /></Fact>
           <Fact label="المنشئ"><PersonChip user={user(task.creatorId)} /></Fact>
-          <Fact label="المراجع">{task.reviewerId ? <PersonChip user={user(task.reviewerId)} /> : <span className="text-muted">— لا يوجد —</span>}</Fact>
-          <Fact label="الموعد"><DateText iso={task.dueDate} /></Fact>
+          <Fact label="المراجع">{task.reviewerId ? <PersonChip user={user(task.reviewerId)} /> : <span className="font-normal text-muted">لا يوجد</span>}</Fact>
+          <Fact label="الموعد"><span className={isOverdue(task, state.now) ? 'text-st-danger' : undefined}><DateText iso={task.dueDate} /></span></Fact>
           <Fact label="السجل المرتبط">
             {task.link ? (
               <span className="text-sm">
@@ -188,10 +187,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
               </span>
             ) : 'مهمة مستقلة دون سجل'}
           </Fact>
-          <Fact label="المصدر">
-            {SOURCE_NAMES[task.source]}
-            {task.dedupeKey && <span className="mt-0.5 block text-[11px] text-muted">مفتاح منع التكرار: <span className="ltr-iso">{task.dedupeKey}</span></span>}
-          </Fact>
+          <Fact label="المصدر"><span title={task.dedupeKey ? `مفتاح منع التكرار: ${task.dedupeKey}` : undefined}>{SOURCE_NAMES[task.source]}</span></Fact>
           <Fact label="أُنشئت"><DateText iso={task.createdAt} time /></Fact>
           {task.contributors.length > 0 && <Fact label="المساهمون">{task.contributors.map((c) => userName(c)).join('، ')}</Fact>}
           {task.completedAt && <Fact label="اكتملت"><DateText iso={task.completedAt} time /></Fact>}
@@ -209,7 +205,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
         {task.escalations.length > 0 && (
           <section>
             <h4 className="mb-2 text-sm font-semibold text-ink">التذكير والتصعيد</h4>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-2 text-sm">
               {task.escalations.map((e, i) => (
                 <li key={i} className="flex items-center gap-2 text-ink-2">
                   <Pill tone={e.level === 2 ? 'danger' : 'waiting'}>المستوى {e.level}</Pill>
@@ -221,9 +217,9 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
         )}
 
         <section>
-          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink"><Paperclip size={15} /> المرفقات</h4>
+          <h4 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-ink"><Paperclip size={15} className="text-muted" /> المرفقات {task.attachments.length > 0 && <span className="font-normal text-muted">· {task.attachments.length}</span>}</h4>
           {task.attachments.length ? (
-            <Table head={['الملف', 'معرّف Nextcloud', 'الحجم', 'أرفقه']}>
+            <div className="overflow-hidden rounded-lg border border-line"><Table head={['الملف', 'معرّف Nextcloud', 'الحجم', 'أرفقه']}>
               {task.attachments.map((f) => (
                 <tr key={f.fileId}>
                   <Td><bdi>{f.name}</bdi></Td>
@@ -232,7 +228,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
                   <Td className="text-xs">{userName(f.by)} · {fmtDateTime(f.at)}</Td>
                 </tr>
               ))}
-            </Table>
+            </Table></div>
           ) : (
             <p className="text-sm text-muted">لا توجد مرفقات.</p>
           )}
@@ -240,26 +236,26 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
 
         {task.reassignLog.length > 0 && (
           <section>
-            <h4 className="mb-2 text-sm font-semibold text-ink">سجل تغيير المسؤول</h4>
+            <h4 className="mb-3 text-sm font-semibold text-ink">سجل تغيير المسؤول</h4>
             <Timeline items={task.reassignLog.map((r) => ({ at: r.at, title: <>من {userName(r.from)} إلى {userName(r.to)}</>, by: userName(r.by), note: r.reason }))} />
           </section>
         )}
 
         <section>
-          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink"><MessageSquare size={15} /> المتابعات والتعليقات</h4>
+          <h4 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-ink"><MessageSquare size={15} className="text-muted" /> المتابعات والتعليقات</h4>
           {task.comments.length ? (
             <ul className="space-y-2">
               {task.comments.map((c, i) => (
-                <li key={i} className="rounded-md bg-page px-3 py-2">
-                  <p className="text-xs text-muted">{userName(c.by)} · {fmtDateTime(c.at)}</p>
+                <li key={i} className="rounded-lg bg-page px-4 py-3">
                   <p className="text-sm text-ink">{c.text}</p>
+                  <p className="mt-1 text-xs text-muted">{userName(c.by)} · {fmtDateTime(c.at)}</p>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="text-sm text-muted">لا توجد تعليقات.</p>
           )}
-          <div className="mt-2 flex items-end gap-2">
+          <div className="mt-3 flex items-end gap-2">
             <Textarea rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="أضف متابعة أو تعليقًا…" />
             <Button onClick={sendComment} disabled={!comment.trim()} icon={<Send size={14} />}>إرسال</Button>
           </div>

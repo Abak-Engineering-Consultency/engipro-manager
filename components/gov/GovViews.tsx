@@ -210,7 +210,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
           <Fact label="المعقّب">{g.expeditorId ? userName(g.expeditorId) : 'لم يُسند'}</Fact>
           <Fact label="وقت المكتب"><span className="tabular">{times.office} يوم</span></Fact>
           <Fact label="انتظار الجهة (كل الجولات)"><span className="tabular">{times.authority} يوم</span></Fact>
-          <Fact label="آخر تحديث / التالي">{fmtDate(g.lastUpdateAt)} / {fmtDate(wu.next)}</Fact>
+          {g.status === 'at_authority' && <Fact label="آخر تحديث / التالي">{fmtDate(g.lastUpdateAt)} / {fmtDate(wu.next)}</Fact>}
           <Fact label="أُنشئت"><DateText iso={g.createdAt} /> <span className="ltr-iso text-xs font-normal text-muted">{g.serviceCode}</span></Fact>
         </dl>
 

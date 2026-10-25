@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, PlayCircle } from 'lucide-react';
 import { useStore } from '../app/store';
 import { HARD_RULES, JOURNEYS, MASTER, RULE_COUNT, SECTIONS } from '../domain/process';
-import { Button, Card, PageHeader, Pill, Tabs, Code } from '../components/ui';
+import { Button, Card, Input, PageHeader, Pill, Table, Tabs, Td, Code } from '../components/ui';
 
 type View = 'journeys' | 'rules' | 'master' | 'hard';
 
@@ -11,14 +11,13 @@ export const Process: React.FC = () => {
   const [view, setView] = useState<View>('journeys');
   const simulated = SECTIONS.flatMap((s) => s.rules).filter((r) => r.simulated).length;
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
-        eyebrow="المرجع: لوحة FigJam «ABAK ERP — Full Process Flowchart» — الأقسام 01–10 وMASTER والقسم 11"
-        title="مسار العمل الكامل للمشاريع"
-        subtitle={`${RULE_COUNT} قاعدة من الفلوتشارت، كلها تمر بأوامر محرّك العمليات نفسه: ${RULE_COUNT - simulated} مطبّقة فعليًا و${simulated} بمحاكاة Nextcloud. اختر رحلة وتصرّف بصفة كل شخص فيها.`}
+        title="مسار العمل"
+        subtitle={<><span className="font-semibold text-ink">{RULE_COUNT}</span> قاعدة من لوحة FigJam للمسار الكامل · {RULE_COUNT - simulated} مطبّقة و{simulated} بمحاكاة Nextcloud</>}
       />
       <Card pad={false}>
-        <div className="px-2">
+        <div className="px-5">
           <Tabs
             value={view}
             onChange={setView}
@@ -30,7 +29,7 @@ export const Process: React.FC = () => {
             ]}
           />
         </div>
-        <div className="p-4">
+        <div className="p-5">
           {view === 'journeys' && <Journeys />}
           {view === 'master' && <Master />}
           {view === 'rules' && <Rules />}
@@ -49,13 +48,13 @@ function Journeys() {
     navigate(to);
   };
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-6 xl:grid-cols-2">
       {JOURNEYS.map((j) => (
         <section key={j.n} className="rounded-lg border border-line">
           <header className="border-b border-line bg-page px-4 py-3">
             <p className="text-xs text-muted">الرحلة {j.n}</p>
             <h3 className="font-semibold text-ink">{j.title}</h3>
-            <p className="text-xs text-muted">{j.summary}</p>
+            <p className="mt-0.5 text-xs text-muted">{j.summary}</p>
           </header>
           <ol className="divide-y divide-line">
             {j.steps.map((s, i) => (
@@ -80,14 +79,12 @@ function Journeys() {
 function Master() {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ink-2">
-        الخطوات 1–12 (الاستقبال، التأهيل، طلب التسعير، العرض، الاعتمادات، الإرسال، متابعة العميل) قائمة في نظام ABAK ERP للمبيعات. هذا النموذج يبدأ من الخطوة 13: القبول الموثق والتفعيل، حتى الإغلاق المالي (36).
-      </p>
-      <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
+      <p className="text-sm text-muted">الخطوات 1–12 في نظام المبيعات. يبدأ هذا النموذج من الخطوة 13 (القبول والتفعيل) حتى الإغلاق المالي.</p>
+      <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
         {MASTER.map((m) => (
           <li key={m.n}>
             <Link to={m.to} className="block h-full rounded-lg border border-line bg-card p-3 transition-colors hover:border-brand-300 hover:bg-brand-50">
-              <span className="text-xs font-semibold text-accent-600 tabular">{m.n}</span>
+              <span className="text-xs font-semibold text-brand-600 tabular">{m.n}</span>
               <p className="text-sm font-medium text-ink">{m.title}</p>
               <p className="mt-1 text-xs text-muted">المسؤول: {m.owner}</p>
             </Link>
@@ -102,40 +99,30 @@ function Rules() {
   const [q, setQ] = useState('');
   return (
     <div className="space-y-5">
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث برقم القاعدة أو نصها (مثل DL-04 أو «التحصيل»)" className="h-10 w-full max-w-md rounded-md border border-input px-3 text-sm" />
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث برقم القاعدة أو نصها (مثل DL-04 أو «التحصيل»)" className="max-w-md" aria-label="بحث في القواعد" />
       {SECTIONS.map((s) => {
         const rules = s.rules.filter((r) => !q || r.id.toLowerCase().includes(q.toLowerCase()) || r.text.includes(q) || r.how.includes(q));
         if (!rules.length) return null;
         return (
           <section key={s.id}>
-            <h3 className="mb-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
-              <span className="rounded bg-brand-600 px-1.5 text-xs text-white">{s.id}</span> {s.title}
-              <span className="text-xs font-normal text-muted ltr-iso">{s.node}</span>
+            <h3 className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+              <Code>{s.id}</Code> {s.title}
+              <span className="text-xs font-normal text-faint ltr-iso">{s.node}</span>
             </h3>
-            <div className="overflow-x-auto rounded-lg border border-line">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-page text-xs text-muted">
-                    <th className="px-3 py-2 text-start font-medium">القاعدة</th>
-                    <th className="px-3 py-2 text-start font-medium">النص</th>
-                    <th className="px-3 py-2 text-start font-medium">أين في النموذج</th>
-                    <th className="px-3 py-2 text-start font-medium">كيف يفرضها المحرّك</th>
+            <div className="overflow-hidden rounded-lg border border-line">
+              <Table head={['القاعدة', 'النص', 'أين في النموذج', 'كيف يفرضها المحرّك']}>
+                {rules.map((r) => (
+                  <tr key={r.id} className="align-top">
+                    <Td className="!align-top"><Code>{r.id}</Code></Td>
+                    <Td className="min-w-64 !align-top text-ink">{r.text}</Td>
+                    <Td className="whitespace-nowrap !align-top">
+                      <Link to={r.to} className="inline-flex items-center gap-1 text-brand-700 hover:underline">{r.where}<ArrowLeft size={13} /></Link>
+                      {r.simulated && <Pill tone="waiting" className="ms-1">محاكاة</Pill>}
+                    </Td>
+                    <Td className="!align-top"><code className="text-xs text-muted" dir="ltr">{r.how}</code></Td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {rules.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-3 py-2 align-top"><Code>{r.id}</Code></td>
-                      <td className="min-w-64 px-3 py-2 align-top text-ink">{r.text}</td>
-                      <td className="px-3 py-2 align-top whitespace-nowrap">
-                        <Link to={r.to} className="inline-flex items-center gap-1 text-brand-700 hover:underline">{r.where}<ArrowLeft size={13} /></Link>
-                        {r.simulated && <Pill tone="waiting" className="ms-1">محاكاة</Pill>}
-                      </td>
-                      <td className="px-3 py-2 align-top"><code className="text-xs text-ink-2" dir="ltr">{r.how}</code></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                ))}
+              </Table>
             </div>
           </section>
         );
@@ -146,19 +133,19 @@ function Rules() {
 
 function Hard() {
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {HARD_RULES.map((r) => (
-        <div key={r.id} className="rounded-lg border border-line p-3">
-          <div className="flex items-start gap-2">
-            <Code>{r.id}</Code>
-            <p className="text-sm font-medium text-ink">{r.text}</p>
+    <div className="space-y-4">
+      <p className="text-sm text-muted">مفروضة داخل أوامر المحرّك نفسه لا بإخفاء الأزرار: نفّذ إجراءً بصفة شخص لا يملكه فيُرفض مع السبب.</p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {HARD_RULES.map((r) => (
+          <div key={r.id} className="rounded-lg border border-line p-4">
+            <div className="flex items-start gap-2">
+              <Code>{r.id}</Code>
+              <p className="text-sm font-medium text-ink">{r.text}</p>
+            </div>
+            <p className="mt-2 text-xs text-muted"><code dir="ltr">{r.how}</code></p>
           </div>
-          <p className="mt-1 text-xs text-muted">في المحرّك: <code dir="ltr">{r.how}</code></p>
-        </div>
-      ))}
-      <p className="text-xs text-muted md:col-span-2">
-        هذه القواعد مفروضة داخل أوامر المحرّك نفسه، لا بإخفاء الأزرار: جرّب تنفيذ إجراء بصفة شخص لا يملكه، فيرفضه المحرّك ويعرض السبب. ويتحقق منها السكربت <code dir="ltr">npm run journeys</code>.
-      </p>
+        ))}
+      </div>
     </div>
   );
 }

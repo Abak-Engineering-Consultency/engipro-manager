@@ -452,7 +452,7 @@ export function Drawer({ open, onClose, title, children, actions }: { open: bool
             <X size={18} />
           </button>
         </header>
-        {actions && <div className="flex flex-wrap gap-2 border-b border-line bg-page px-6 py-3">{actions}</div>}
+        {actions && <div className="flex flex-wrap gap-2 border-b border-line bg-page px-6 py-3 empty:hidden">{actions}</div>}
         <div className="grow overflow-y-auto px-6 py-5">{children}</div>
       </aside>
     </div>
