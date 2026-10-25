@@ -10,10 +10,6 @@ import { Intake } from './pages/Intake';
 import { Gov } from './pages/Gov';
 import { Visits } from './pages/Visits';
 import { Finance } from './pages/Finance';
-import { Team } from './pages/Team';
-import { Access } from './pages/Access';
-import { Process } from './pages/Process';
-import { SettingsPage } from './pages/Settings';
 
 const App: React.FC = () => (
   <StoreProvider>
@@ -29,10 +25,7 @@ const App: React.FC = () => (
           <Route path="gov" element={<Gov />} />
           <Route path="visits" element={<Visits />} />
           <Route path="finance" element={<Finance />} />
-          <Route path="team" element={<Team />} />
-          <Route path="access" element={<Access />} />
-          <Route path="process" element={<Process />} />
-          <Route path="settings" element={<SettingsPage />} />
+          {/* «الفريق والموارد», «الأدوار والصلاحيات», «مسار العمل» and «الإعدادات» are hidden: their pages stay in pages/ and come back by restoring the route and the nav item. */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

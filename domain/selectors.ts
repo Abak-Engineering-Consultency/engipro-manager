@@ -1,5 +1,5 @@
 import { isAfter } from './calendar';
-import { allows } from './permissions';
+import { allows, hasRole } from './permissions';
 import type { AppState, Deliverable, GovTransaction, Project, User } from './types';
 
 /** PJ-09: why the project cannot start yet. Empty = the gate is met. */
@@ -91,8 +91,8 @@ export function projectAccess(s: AppState, u: User | undefined, p: Project): Pro
   const member = p.members.some((m) => m.userId === u.id && m.capacity !== 'opportunity_owner');
   if (allows(u, 'project.read', { own: member, depts: p.departments.map((d) => d.deptCode) })) return 'full';
   if (member) return 'full';
-  if (u.roleId === 'accountant') return 'finance';
-  if (p.members.some((m) => m.userId === u.id && m.capacity === 'opportunity_owner') || u.roleId === 'sales_manager') return 'client';
+  if (hasRole(u, 'accountant')) return 'finance';
+  if (p.members.some((m) => m.userId === u.id && m.capacity === 'opportunity_owner') || hasRole(u, 'sales_manager')) return 'client';
   if (s.gov.some((g) => g.projectId === p.id && (g.licensingOfficerId === u.id || g.expeditorId === u.id))) return 'client';
   return null;
 }

@@ -65,7 +65,7 @@ export const DateText = ({ iso, time }: { iso?: ISO; time?: boolean }) => <span 
 
 export function Avatar({ user, size = 28 }: { user?: User; size?: number }) {
   return (
-    <span title={user?.name} className="inline-grid shrink-0 place-items-center rounded-full bg-brand-100 font-semibold text-brand-700" style={{ width: size, height: size, fontSize: size * 0.38 }}>
+    <span title={user?.name} className="inline-grid shrink-0 place-items-center whitespace-nowrap rounded-full bg-brand-100 font-semibold text-brand-700" style={{ width: size, height: size, fontSize: size * 0.36, letterSpacing: -0.5 }}>
       {user?.initials ?? '؟'}
     </span>
   );
@@ -482,5 +482,5 @@ export const Td = ({ children, className }: { children?: ReactNode; className?: 
 
 /** Options for a person picker, filtered by a predicate. */
 export function userOptions(users: User[], filter: (u: User) => boolean = () => true) {
-  return users.filter(filter).map((u) => ({ value: u.id, label: `${u.name} — ${u.title}` }));
+  return users.filter((u) => !u.deactivated && filter(u)).map((u) => ({ value: u.id, label: `${u.name} — ${u.title}` }));
 }

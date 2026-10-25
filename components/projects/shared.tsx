@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Tone } from '../../domain/labels';
+import { hasRole, inDept, isActive } from '../../domain/permissions';
 import { startGate } from '../../domain/selectors';
 import type { AppState, ChainStep, ChangeKind, ChangeRequest, Project } from '../../domain/types';
 
@@ -52,8 +53,8 @@ export const CREATED_FROM: Record<Project['createdFrom'], string> = {
 /** Who holds the project's next step, and what it is — for lists and the overview. */
 export function nextStep(s: AppState, p: Project): { text: string; who?: string; tone: Tone } {
   const name = (id?: string) => (id ? s.users.find((u) => u.id === id)?.name : undefined);
-  const director = s.users.find((u) => u.roleId === 'main_dept_manager')?.id;
-  const leadMgr = s.users.find((u) => u.roleId === 'dept_manager' && u.deptCode === p.leadDept)?.id;
+  const director = s.users.find((u) => isActive(u) && hasRole(u, 'main_dept_manager'))?.id;
+  const leadMgr = s.users.find((u) => isActive(u) && hasRole(u, 'dept_manager') && inDept(u, p.leadDept))?.id;
   switch (p.status) {
     case 'awaiting_assignment':
       if (p.preSystem && !p.preSystem.financeReviewed) return { text: 'مراجعة المالية للأرصدة السابقة', who: 'المالية', tone: 'waiting' };

@@ -6,7 +6,7 @@ import { fmtDate, fmtDateTime } from '../../domain/calendar';
 import { DEPARTMENTS, deptName } from '../../domain/catalog';
 import { derivedActions } from '../../domain/derived';
 import { ACTIVATION_STATES, CAPACITY_NAMES, DELIVERABLE_STATES, GOV_STATES, PROJECT_STATES, TASK_STATES } from '../../domain/labels';
-import { allows } from '../../domain/permissions';
+import { allows, hasRole, inDept } from '../../domain/permissions';
 import { projectBar } from '../../domain/selectors';
 import type { DeliverableState, MemberCapacity, ProjectState } from '../../domain/types';
 import { Card, cn, CommandButton, DateText, Empty, Money, Notice, Pill, PersonChip, Progress, StatePill, userOptions } from '../../components/ui';
@@ -28,7 +28,7 @@ export const OverviewTab: React.FC<TabProps> = ({ project: p, access }) => {
   const myTasks = state.tasks.filter((t) => t.link?.projectId === p.id && t.ownerId === me.id && !['completed', 'cancelled'].includes(t.status));
   const itemDepts = [...new Set(p.scopeItems.map((i) => i.deptCode))];
   const isDirector = allows(me, 'project.assign_manager');
-  const isLeadManager = me.roleId === 'dept_manager' && me.deptCode === p.leadDept;
+  const isLeadManager = hasRole(me, 'dept_manager') && inDept(me, p.leadDept);
   const members = groupBy(p.members, (m) => m.capacity);
   const bar = projectBar(state, p);
   const events = state.events.filter((e) => e.projectId === p.id).slice(-4).reverse();
@@ -129,7 +129,7 @@ export const OverviewTab: React.FC<TabProps> = ({ project: p, access }) => {
                 <CommandButton
                   command="project.nominate_pm" base={{ projectId: p.id }} label="ترشيح مدير المشروع" size="md" success="رُشّح مدير المشروع — بانتظار اعتماد مدير الأقسام"
                   intro="يجوز لمدير القسم ترشيح نفسه. الاعتماد لمدير الأقسام."
-                  fields={[{ name: 'nomineeId', label: 'المرشح', type: 'select', options: userOptions(state.users, (u) => u.deptCode === p.leadDept && ['engineer', 'dept_manager'].includes(u.roleId)) }]}
+                  fields={[{ name: 'nomineeId', label: 'المرشح', type: 'select', options: userOptions(state.users, (u) => inDept(u, p.leadDept) && hasRole(u, 'engineer', 'dept_manager')) }]}
                 />
               )}
               {p.pmNomination?.status === 'pending' && isDirector && (

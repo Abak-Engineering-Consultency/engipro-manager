@@ -69,7 +69,7 @@ Key: ✅ followed · ◐ partly · ✗ broken
 The goal is a minimum set of rules, used without exception.
 
 - **Layout landmarks.**
-  - Dark sidebar on the start side, with the light ABAK logo, the navigation and a «الإدارة» group, and the acting user at the bottom (click to switch).
+  - Dark sidebar on the start side, with the light ABAK logo, the navigation, and the acting user at the bottom (click to switch).
   - White top bar with menu, project search, the demo date and notifications.
   - Content on `#F7F9FA`.
 - **Spacing.** Gaps are tied to relationships, not set by eye.

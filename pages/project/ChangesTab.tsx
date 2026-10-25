@@ -4,7 +4,7 @@ import { GitPullRequestArrow } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { DEPARTMENTS, deptName, SERVICES } from '../../domain/catalog';
 import { ACTIVATION_STATES } from '../../domain/labels';
-import { allows } from '../../domain/permissions';
+import { allows, hasRole } from '../../domain/permissions';
 import type { ChangeKind, ChangeRequest, Project } from '../../domain/types';
 import { Card, CommandButton, DateText, Empty, Id, Money, Pill, StatePill } from '../../components/ui';
 import { CHANGE_KINDS, CHANGE_STATUS } from '../../components/projects/shared';
@@ -74,7 +74,7 @@ function ChangeCard({ p, c }: { p: Project; c: ChangeRequest }) {
   const { userName } = useLookup();
   const kind = CHANGE_KINDS[c.kind as ChangeKind];
   const st = CHANGE_STATUS[c.status];
-  const deciderOk = c.kind === 'track' && !p.multiDept ? allows(me, 'project.staff', { depts: [p.leadDept] }) && me.roleId === 'dept_manager' : allows(me, 'project.approve_change');
+  const deciderOk = c.kind === 'track' && !p.multiDept ? allows(me, 'project.staff', { depts: [p.leadDept] }) && hasRole(me, 'dept_manager') : allows(me, 'project.approve_change');
   const canDecide = c.status === 'pending' && deciderOk;
   const isOppOwner = (p.opportunityId ? state.opportunities.find((o) => o.id === p.opportunityId)?.ownerId : p.followUpOwnerId) === me.id;
   const q = c.quotationId ? state.quotations.find((x) => x.id === c.quotationId) : undefined;

@@ -63,7 +63,7 @@ ok('u_arc_m', 'project.assign_owner', { projectId: j1, scopeItemId: items[0].id,
 ok('u_arc_m', 'project.assign_owner', { projectId: j1, scopeItemId: items[1].id, ownerId: 'u_arc_e2' });
 refused('u_arc_m', 'project.assign_owner', { projectId: j1, scopeItemId: items[2].id, ownerId: 'u_str_e' }, 'a manager assigns only the items of their department');
 ok('u_str_m', 'project.assign_owner', { projectId: j1, scopeItemId: items[2].id, ownerId: 'u_str_e' });
-ok('u_lic_m', 'project.assign_owner', { projectId: j1, scopeItemId: items[3].id, ownerId: 'u_lic_o' });
+ok('u_dod', 'project.assign_owner', { projectId: j1, scopeItemId: items[3].id, ownerId: 'u_lic_o' });
 ok('u_arc_e', 'project.plan_from_items', { projectId: j1 });
 const concepts = s.deliverables.filter((d) => d.projectId === j1 && d.title.includes('المفهوم'));
 refused('u_arc_e', 'project.submit_payment_links', { projectId: j1, links: [{ paymentId: pay(j1, 'مقدمة').id, kind: 'deliverables', ids: [concepts[0].id] }] }, 'a time-based payment cannot be linked to a deliverable');
@@ -179,9 +179,9 @@ expect(project(villa).status === 'technically_complete', 'all deliverables appro
 section('Journey 3 — supervision visits (AC-11, AC-12)');
 const sup = s.projects.find((p) => p.opportunityId === 'OPP-2026-0097')!.id;
 const v3 = s.visits.find((v) => v.ownerId === 'u_sup_e' && v.status === 'report_pending')!;
-expect(v3.report?.approverId === 'u_sup_m', 'AC-11 the PM did the visit → the department manager approves');
+expect(v3.report?.approverId === 'u_str_m', 'AC-11 the PM did the visit → the department manager approves');
 refused('u_sup_e', 'visit.decide_report', { visitId: v3.id, decision: 'approved', note: '' }, 'the executor cannot approve their own report');
-ok('u_sup_m', 'visit.decide_report', { visitId: v3.id, decision: 'approved', note: '' });
+ok('u_str_m', 'visit.decide_report', { visitId: v3.id, decision: 'approved', note: '' });
 const tomorrow = s.visits.find((v) => v.status === 'confirmed' && v.participants.includes('u_str_e'))!;
 refused('u_str_m', 'visit.schedule', { type: 'inspection', purpose: 'معاينة', expectedResult: '-', location: 'x', contact: '-', ownerId: 'u_str_m', participants: ['u_str_e'], plannedStart: tomorrow.plannedStart, durationHours: 2, billing: 'na' }, 'participant conflict is caught');
 const billable = s.visits.filter((v) => v.link?.projectId === sup && v.billing === 'billable').map((v) => v.id);
@@ -253,7 +253,7 @@ ok('u_str_e', 'cost.create', { ...costBase, service: 'رفع مساحي', amount
 ok('u_dod', 'cost.decide', { costId: s.costs.at(-1)!.id, decision: 'approved', note: '' });
 refused('u_str_e', 'cost.create', { ...costBase, service: 'مهندس مستقل', amount: 5_000, scopeItemId: strItem }, 'AC-03 above the exception cost cap');
 ok('u_str_m', 'project.assign_owner', { projectId: ep, scopeItemId: strItem, ownerId: 'u_str_e' });
-ok('u_mod_m', 'project.assign_owner', { projectId: ep, scopeItemId: modItem, ownerId: 'u_mod_e' });
+ok('u_dod', 'project.assign_owner', { projectId: ep, scopeItemId: modItem, ownerId: 'u_mod_e' });
 ok('u_str_e', 'project.submit_payment_links', {
   projectId: ep, links: [
     { paymentId: pay(ep, 'مقدمة').id, kind: 'none', ids: [] },

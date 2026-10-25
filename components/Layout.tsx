@@ -2,18 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell, CalendarClock, CheckCircle2, ChevronsUpDown, FolderKanban, Inbox, Info, Landmark, LayoutDashboard, ListChecks, MapPin,
-  Menu, RotateCcw, Search, Settings, ShieldCheck, Users, Wallet, Workflow, X, XCircle,
+  Menu, RotateCcw, Search, Wallet, X, XCircle,
 } from 'lucide-react';
 import { useStore } from '../app/store';
 import { derivedActions } from '../domain/derived';
 import { fmtDateTime, fmtLong } from '../domain/calendar';
 import { ROLE_NAMES, PROJECT_STATES } from '../domain/labels';
-import { holds } from '../domain/permissions';
+import { hasRole, holds } from '../domain/permissions';
 import { projectAccess } from '../domain/selectors';
 import type { RoleId, User } from '../domain/types';
 import { Avatar, Button, cn, Modal, StatePill } from './ui';
 
-interface NavItem { to: string; label: string; icon: React.ReactNode; show: (u: User) => boolean; badge?: number; group?: 'main' | 'admin' }
+interface NavItem { to: string; label: string; icon: React.ReactNode; show: (u: User) => boolean; badge?: number }
 
 export const Logo = ({ height = 36, light = false }: { height?: number; light?: boolean }) => (
   <img src={light ? '/abak-logo-light.png' : '/abak-logo.png'} alt="أباك للاستشارات الهندسية" style={{ height, width: 'auto' }} className="block select-none object-contain" draggable={false} />
@@ -31,26 +31,19 @@ export const Layout: React.FC = () => {
     { to: '/dashboard', label: 'لوحة التحكم', icon: <LayoutDashboard size={20} />, show: () => true },
     { to: '/work', label: 'مهامي', icon: <ListChecks size={20} />, show: () => true, badge: actions.length + myOpenTasks },
     { to: '/projects', label: 'المشاريع', icon: <FolderKanban size={20} />, show: () => true },
-    { to: '/intake', label: 'التفعيل والاستلام', icon: <Inbox size={20} />, show: (u) => ['accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin'].includes(u.roleId) },
-    { to: '/gov', label: 'المعاملات الحكومية', icon: <Landmark size={20} />, show: (u) => holds(u, 'gov_transaction.prepare') || holds(u, 'gov_transaction.assign') || holds(u, 'gov_transaction.follow_up') || ['main_dept_manager', 'ceo', 'dept_manager', 'engineer', 'sales_rep', 'admin'].includes(u.roleId) },
+    { to: '/intake', label: 'التفعيل والاستلام', icon: <Inbox size={20} />, show: (u) => hasRole(u, 'accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin') },
+    { to: '/gov', label: 'المعاملات الحكومية', icon: <Landmark size={20} />, show: (u) => holds(u, 'gov_transaction.prepare') || holds(u, 'gov_transaction.assign') || holds(u, 'gov_transaction.follow_up') || hasRole(u, 'main_dept_manager', 'ceo', 'dept_manager', 'engineer', 'sales_rep', 'admin') },
     { to: '/visits', label: 'الزيارات', icon: <MapPin size={20} />, show: (u) => holds(u, 'visit.manage') },
-    { to: '/finance', label: 'المالية', icon: <Wallet size={20} />, show: (u) => ['accountant', 'ceo'].includes(u.roleId) },
-    { to: '/team', label: 'الفريق والموارد', icon: <Users size={20} />, show: (u) => ['main_dept_manager', 'dept_manager', 'ceo', 'admin'].includes(u.roleId) },
-    { to: '/access', label: 'الأدوار والصلاحيات', icon: <ShieldCheck size={20} />, show: () => true, group: 'admin' },
-    { to: '/process', label: 'مسار العمل', icon: <Workflow size={20} />, show: () => true, group: 'admin' },
-    { to: '/settings', label: 'الإعدادات', icon: <Settings size={20} />, show: () => true, group: 'admin' },
+    { to: '/finance', label: 'المالية', icon: <Wallet size={20} />, show: (u) => hasRole(u, 'accountant', 'ceo') },
   ];
   const items = nav.filter((n) => n.show(me));
 
   const sidebar = (onNavigate: () => void) => (
     <>
       <nav className="flex grow flex-col gap-1 overflow-y-auto px-3 py-6">
-        {items.map((n, i) => (
-          <React.Fragment key={n.to}>
-            {n.group === 'admin' && items[i - 1]?.group !== 'admin' && (
-              <p className="mt-4 border-t border-sidebar-line px-3 pt-4 pb-2 text-xs font-semibold text-sidebar-muted">الإدارة</p>
-            )}
+        {items.map((n) => (
             <NavLink
+              key={n.to}
               to={n.to}
               onClick={onNavigate}
               className={({ isActive }) => cn(
@@ -62,7 +55,6 @@ export const Layout: React.FC = () => {
               <span className="grow truncate">{n.label}</span>
               {!!n.badge && <span className="rounded-full bg-white/15 px-2 text-xs font-semibold text-white tabular">{n.badge}</span>}
             </NavLink>
-          </React.Fragment>
         ))}
       </nav>
       <div className="border-t border-sidebar-line p-3">
@@ -279,7 +271,8 @@ function ActorSwitcher() {
   const { state, me, setActor } = useStore();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
-  const groups = ROLE_ORDER.map((r) => ({ role: r, users: state.users.filter((u) => u.roleId === r && (!q || u.name.includes(q) || u.title.includes(q))) })).filter((g) => g.users.length);
+  const match = (u: User) => !q || u.name.includes(q) || u.title.includes(q) || u.email.includes(q.toLowerCase());
+  const groups = ROLE_ORDER.map((r) => ({ role: r, users: state.users.filter((u) => u.roleId === r && match(u)) })).filter((g) => g.users.length);
   return (
     <div className="relative">
       <button className="flex w-full items-center gap-3 rounded-md p-2 text-start hover:bg-sidebar-hover" onClick={() => setOpen((o) => !o)} title="تبديل المستخدم لتجربة دوره في المسار">
@@ -296,19 +289,26 @@ function ActorSwitcher() {
           <div className="absolute bottom-full start-0 z-50 mb-2 w-[min(88vw,320px)] rounded-lg border border-line bg-card text-ink shadow-overlay">
             <div className="border-b border-line p-3">
               <p className="pb-2 text-xs text-muted">تصرّف بصفة…</p>
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالاسم أو المسمى" className="h-9 w-full rounded-md border border-line px-3 text-sm focus:border-brand-500 focus:outline-none" />
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالاسم أو المسمى أو البريد" className="h-9 w-full rounded-md border border-line px-3 text-sm focus:border-brand-500 focus:outline-none" />
             </div>
             <div className="max-h-[60vh] overflow-y-auto py-1">
               {groups.map((g) => (
                 <div key={g.role}>
                   <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted">{ROLE_NAMES[g.role]}</p>
                   {g.users.map((u) => (
-                    <button key={u.id} onClick={() => { setActor(u.id); setOpen(false); setQ(''); }} className={cn('flex w-full items-center gap-3 px-4 py-2 text-start hover:bg-page', u.id === me.id && 'bg-brand-50')}>
+                    <button
+                      key={u.id}
+                      disabled={u.deactivated}
+                      title={u.email}
+                      onClick={() => { setActor(u.id); setOpen(false); setQ(''); }}
+                      className={cn('flex w-full items-center gap-3 px-4 py-2 text-start hover:bg-page disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent', u.id === me.id && 'bg-brand-50')}
+                    >
                       <Avatar user={u} size={28} />
                       <span className="min-w-0 grow">
                         <span className="block truncate text-sm text-ink">{u.name}</span>
                         <span className="block truncate text-xs text-muted">{u.title}</span>
                       </span>
+                      {u.deactivated && <span className="shrink-0 rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">معطّل</span>}
                       {u.id === me.id && <CheckCircle2 size={16} className="text-brand-600" />}
                     </button>
                   ))}
