@@ -4,6 +4,7 @@ import { AlertTriangle, CalendarClock, Inbox, LayoutGrid, List, Search, X } from
 import { useLookup, useStore } from '../app/store';
 import { DEPARTMENTS, deptName } from '../domain/catalog';
 import { PROJECT_STATES } from '../domain/labels';
+import { hasRole } from '../domain/permissions';
 import { projectProgress, visibleProjects } from '../domain/selectors';
 import type { DeptCode, ProjectState } from '../domain/types';
 import { Card, cn, DateText, Empty, Input, PageHeader, Progress, Select, StatePill, Table, Td } from '../components/ui';
@@ -47,7 +48,7 @@ export const Projects: React.FC = () => {
     return true;
   });
   const filtered = dept !== 'all' || pm !== 'all' || !!q.trim();
-  const canIntake = ['accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin'].includes(me.roleId);
+  const canIntake = hasRole(me, 'accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin');
 
   return (
     <div className="space-y-6">

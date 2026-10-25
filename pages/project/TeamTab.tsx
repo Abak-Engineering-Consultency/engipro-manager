@@ -2,8 +2,8 @@ import React from 'react';
 import { Building2, GitFork, KeyRound, Users } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { deptName } from '../../domain/catalog';
-import { CAPACITY_NAMES, ROLE_NAMES } from '../../domain/labels';
-import { allows, effectiveGrants, PERMISSIONS, SCOPE_NAMES } from '../../domain/permissions';
+import { CAPACITY_NAMES, roleLabel } from '../../domain/labels';
+import { allows, effectiveGrants, hasRole, inDept, PERMISSIONS, SCOPE_NAMES } from '../../domain/permissions';
 import { projectAccess } from '../../domain/selectors';
 import type { DeptCode } from '../../domain/types';
 import { Card, CommandButton, DateText, Notice, PersonChip, Pill, Table, Td, userOptions } from '../../components/ui';
@@ -51,7 +51,7 @@ export const TeamTab: React.FC<TabProps> = ({ project: p }) => {
                     {canAssign && (
                       <CommandButton command="project.assign_owner" base={{ projectId: p.id, scopeItemId: i.id }} label={i.ownerId ? 'تغيير' : 'تعيين مسؤول'} variant={i.ownerId ? 'ghost' : 'primary'}
                         success="عُيّن مسؤول البند"
-                        fields={[{ name: 'ownerId', label: `مسؤول «${i.title}» من قسم ${deptName(code)}`, type: 'select', options: userOptions(state.users, (u) => u.deptCode === code && ['engineer', 'dept_manager'].includes(u.roleId)), initial: i.ownerId }]} />
+                        fields={[{ name: 'ownerId', label: `مسؤول «${i.title}» من قسم ${deptName(code)}`, type: 'select', options: userOptions(state.users, (u) => inDept(u, code) && hasRole(u, 'engineer', 'dept_manager')), initial: i.ownerId }]} />
                     )}
                   </Td>
                 </tr>
@@ -66,7 +66,7 @@ export const TeamTab: React.FC<TabProps> = ({ project: p }) => {
           <ul className="divide-y divide-line">
             {p.members.map((m, k) => (
               <li key={k} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
-                <PersonChip user={user(m.userId)} sub={`${ROLE_NAMES[user(m.userId)?.roleId ?? 'engineer']}${m.deptCode ? ` · ${deptName(m.deptCode)}` : ''}`} />
+                <PersonChip user={user(m.userId)} sub={user(m.userId)?.title} />
                 <span className="flex items-center gap-2">
                   <Pill tone={m.capacity === 'project_manager' ? 'brand' : 'muted'}>{CAPACITY_NAMES[m.capacity]}</Pill>
                   <span className="text-xs text-muted"><DateText iso={m.since} /></span>
@@ -78,7 +78,7 @@ export const TeamTab: React.FC<TabProps> = ({ project: p }) => {
 
         <Card title="صلاحيتك في هذا المشروع" icon={<KeyRound size={18} />}>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
-            <div><dt className="text-xs text-muted">الدور</dt><dd className="mt-0.5 font-medium text-ink">{ROLE_NAMES[me.roleId]}</dd></div>
+            <div><dt className="text-xs text-muted">الدور</dt><dd className="mt-0.5 font-medium text-ink">{roleLabel(me)}</dd></div>
             <div><dt className="text-xs text-muted">صفتك في المشروع</dt><dd className="mt-0.5 font-medium text-ink">{myCaps.length ? myCaps.join('، ') : 'غير عضو'}</dd></div>
             <div><dt className="text-xs text-muted">مستوى الاطلاع</dt><dd className="mt-0.5 font-medium text-ink">{access === 'full' ? 'كامل' : access === 'finance' ? 'المنطقة المالية' : access === 'client' ? 'مستندات العميل والمخرجات الجاهزة' : '—'}</dd></div>
             <div><dt className="text-xs text-muted">صلاحيات مباشرة</dt><dd className="mt-0.5 font-medium text-ink">{me.grants.length ? me.grants.map((g) => PERMISSIONS.find((x) => x.key === g.perm)?.label ?? g.perm).join('، ') : 'لا يوجد'}</dd></div>

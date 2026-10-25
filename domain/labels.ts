@@ -1,6 +1,6 @@
 import type {
   ActivationStatus, Collection, CostState, DeliverableState, Entitlement, GovState, Invoicing,
-  MemberCapacity, PaymentCondition, ProjectState, RoleId, TaskState, VisitBilling, VisitState,
+  MemberCapacity, PaymentCondition, ProjectState, RoleId, TaskState, User, VisitBilling, VisitState,
 } from './types';
 
 /** Status tones follow the ABAK status palette: new / progress / waiting / success / danger / muted. */
@@ -119,14 +119,17 @@ export const ACTIVATION_STATES: Record<ActivationStatus, StateLabel> = {
 
 export const ROLE_NAMES: Record<RoleId, string> = {
   ceo: 'الرئيس التنفيذي',
-  main_dept_manager: 'مدير الأقسام / مكتب المشاريع',
+  main_dept_manager: 'مدير الأقسام',
   dept_manager: 'مدير القسم',
   engineer: 'مهندس',
-  accountant: 'المالية',
+  accountant: 'محاسب',
   sales_rep: 'مندوب مبيعات',
   sales_manager: 'مدير المبيعات',
   admin: 'مدير النظام',
 };
+
+/** Every role the person holds, in the order they were given: «مدير القسم، مهندس». */
+export const roleLabel = (u: User) => [u.roleId, ...(u.extraRoles ?? [])].map((r) => ROLE_NAMES[r]).join('، ');
 
 export const CAPACITY_NAMES: Record<MemberCapacity, string> = {
   project_manager: 'مدير المشروع',

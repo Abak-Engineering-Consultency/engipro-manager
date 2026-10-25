@@ -1,7 +1,7 @@
-import { allows, PERMISSIONS, type ScopeContext } from '../permissions';
+import { allows, hasRole, inDept, isActive, PERMISSIONS, type ScopeContext } from '../permissions';
 import { exceptionScope } from '../selectors';
 import type {
-  AppState, CostRequest, Deliverable, GovTransaction, ISO, PaymentItem, Perm, Project, RecordLink, Task, User, UserId, Visit,
+  AppState, CostRequest, Deliverable, DeptCode, GovTransaction, ISO, PaymentItem, Perm, Project, RecordLink, Task, User, UserId, Visit,
 } from '../types';
 import { addCalendarDays } from '../calendar';
 
@@ -101,23 +101,23 @@ export class Ctx {
   }
 
   deptManager(dept?: string): UserId | undefined {
-    return this.s.users.find((u) => u.roleId === 'dept_manager' && u.deptCode === dept)?.id;
+    return this.s.users.find((u) => isActive(u) && hasRole(u, 'dept_manager') && inDept(u, dept as DeptCode))?.id;
   }
 
   directors(): UserId[] {
-    return this.s.users.filter((u) => u.roleId === 'main_dept_manager').map((u) => u.id);
+    return this.s.users.filter((u) => isActive(u) && hasRole(u, 'main_dept_manager')).map((u) => u.id);
   }
 
   ceos(): UserId[] {
-    return this.s.users.filter((u) => u.roleId === 'ceo').map((u) => u.id);
+    return this.s.users.filter((u) => isActive(u) && hasRole(u, 'ceo')).map((u) => u.id);
   }
 
   finance(): UserId[] {
-    return this.s.users.filter((u) => u.roleId === 'accountant').map((u) => u.id);
+    return this.s.users.filter((u) => isActive(u) && hasRole(u, 'accountant')).map((u) => u.id);
   }
 
   salesManagers(): UserId[] {
-    return this.s.users.filter((u) => u.roleId === 'sales_manager').map((u) => u.id);
+    return this.s.users.filter((u) => isActive(u) && hasRole(u, 'sales_manager')).map((u) => u.id);
   }
 
   project(id: string): Project {

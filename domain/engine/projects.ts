@@ -2,6 +2,7 @@ import { addCalendarDays, addDays, daysBetween, isAfter } from '../calendar';
 import { serviceByCode, PLAN_TEMPLATES, deptName } from '../catalog';
 import { TIME_BASED } from '../labels';
 import { schedulePhases } from '../schedule';
+import { deptsOf, hasRole, inDept } from '../permissions';
 import { startGate } from '../selectors';
 import type {
   ApprovalChain, ApprovalDecision, ChainStep, ChangeRequest, DeptCode, Deliverable, ISO, PaymentItem, Phase,
@@ -200,7 +201,7 @@ export const projectCommands = {
 
   'exception.request'(ctx: Ctx, p: { opportunityId: string; reason: string; commitmentDoc: string; allowedScope: string; allowedLineIds: string[]; durationDays: number; costCap: number }) {
     const me = ctx.me;
-    ctx.check(me.roleId === 'dept_manager' || me.roleId === 'main_dept_manager', 'يرفع طلب الاستثناء مدير القسم أو مدير الأقسام');
+    ctx.check(hasRole(me, 'dept_manager', 'main_dept_manager'), 'يرفع طلب الاستثناء مدير القسم أو مدير الأقسام');
     const act = ctx.s.activations.find((a) => a.opportunityId === p.opportunityId && a.status === 'pending_finance');
     ctx.check(act, 'لا يوجد طلب تفعيل بانتظار المالية لهذه الفرصة');
     ctx.check(!ctx.s.projects.some((x) => x.opportunityId === p.opportunityId), 'للفرصة مشروع قائم — لا استثناء ينشئ مشروعًا ثانيًا (F1)');
@@ -284,7 +285,7 @@ export const projectCommands = {
     ctx.check(proj.status === 'awaiting_assignment' && proj.receivedAt, 'المشروع لم يُستلم بعد من مدير الأقسام');
     ctx.check(!proj.pmNomination || proj.pmNomination.status === 'returned', 'يوجد ترشيح بانتظار الاعتماد');
     const nominee = ctx.user(p.nomineeId);
-    ctx.check(['engineer', 'dept_manager'].includes(nominee.roleId), 'المرشح يجب أن يكون مهندسًا أو مدير قسم');
+    ctx.check(hasRole(nominee, 'engineer', 'dept_manager') && !nominee.deactivated, 'المرشح يجب أن يكون مهندسًا أو مدير قسم');
     proj.pmNomination = { nomineeId: p.nomineeId, nominatedBy: ctx.actorId as UserId, at: ctx.now, status: 'pending' };
     ctx.event('project.manager_nominated', { type: 'project', id: proj.id }, `رُشّح ${nominee.name} مديرًا للمشروع`, proj.id);
     ctx.notify(ctx.directors(), { title: `اعتمد مدير المشروع: ${proj.title}`, body: `المرشح: ${nominee.name}`, link: link(proj), type: 'project.manager_nominated' });
@@ -323,7 +324,7 @@ export const projectCommands = {
     ctx.require('project.staff', { depts: [item.deptCode] });
     ctx.check(['preparing', 'in_progress', 'suspended'].includes(proj.status), 'لا يمكن تعيين مسؤولين في هذه الحالة');
     const owner = ctx.user(p.ownerId);
-    ctx.check(owner.deptCode === item.deptCode, 'مسؤول البند يجب أن يكون من نفس القسم');
+    ctx.check(inDept(owner, item.deptCode) && !owner.deactivated, 'مسؤول البند يجب أن يكون من نفس القسم');
     item.ownerId = p.ownerId;
     ctx.addMember(proj, p.ownerId, 'item_owner', item.deptCode);
     const da = proj.departments.find((d) => d.deptCode === item.deptCode);
@@ -636,7 +637,7 @@ export const projectCommands = {
     const me = ctx.me;
     ctx.check(step.approverIds.includes(me.id), 'ليس دورك في هذه المرحلة من سلسلة الاعتماد');
     if (step.key === 'finance') ctx.require('project.review_settlement');
-    else ctx.require('project.approve_closure', { depts: [me.deptCode] });
+    else ctx.require('project.approve_closure', { depts: deptsOf(me) });
     ctx.check(!step.decisions.some((d) => d.userId === me.id), 'سجلت قرارك مسبقًا');
     if (p.decision === 'returned') ctx.check(p.note.trim(), 'سبب الإعادة مطلوب');
     step.decisions.push({ userId: me.id, decision: p.decision, note: p.note, at: ctx.now });

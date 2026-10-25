@@ -2,51 +2,79 @@ import { addCalendarDays, addHours } from './calendar';
 import { run, type CommandName, type Payload } from './engine';
 import { Ctx } from './engine/core';
 import { tick } from './engine/scheduler';
-import type { AppState, Deliverable, Grant, PaymentItem, Quotation, RoleId, Settings, User } from './types';
+import { deptName } from './catalog';
+import { ROLE_NAMES } from './labels';
+import type { AppState, Deliverable, DeptCode, Grant, PaymentItem, Quotation, RoleId, Settings, User } from './types';
 
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 export const BASE_NOW = '2026-10-25T06:00:00.000Z'; // Sunday 09:00, Riyadh
 
-/** «سامي القحطاني» → «س ق»: the family name's initial skips the article «ال». */
+/** «حسن صلاح» → «ح ص»: the family name's initial skips the article «ال». */
 const initials = (name: string) => {
-  const words = name.replace(/^م\.\s*/, '').split(' ').filter(Boolean);
+  const words = name.split(' ').filter(Boolean);
   const first = words[0]?.[0] ?? '';
   const last = words.length > 1 ? words[words.length - 1].replace(/^ال/, '')[0] : '';
   return [first, last].filter(Boolean).join(' ');
 };
 
-const user = (id: string, name: string, title: string, roleId: RoleId, deptCode?: User['deptCode'], grants: Grant[] = []): User => ({
-  id, name, title, roleId, deptCode, grants, initials: initials(name),
-});
+interface Profile {
+  /** Roles in the order ABAK assigned them; the first one leads. */
+  roles: [RoleId, ...RoleId[]];
+  dept?: DeptCode;
+  extraDepts?: DeptCode[];
+  /** A transaction duty held as direct grants (OD-01), shown after the role. */
+  duty?: string;
+  grants?: Grant[];
+  deactivated?: boolean;
+}
 
+const user = (id: string, name: string, email: string, p: Profile): User => {
+  const [roleId, ...extraRoles] = p.roles;
+  const depts = p.dept ? [p.dept, ...(p.extraDepts ?? [])].map(deptName).join('، ') : '';
+  const title = [p.roles.map((r) => ROLE_NAMES[r]).join('، '), depts, p.duty].filter(Boolean).join(' · ');
+  return {
+    id, name, email, title, roleId, ...(extraRoles.length ? { extraRoles } : {}),
+    deptCode: p.dept, ...(p.extraDepts ? { extraDepts: p.extraDepts } : {}),
+    grants: p.grants ?? [], initials: initials(name), ...(p.deactivated ? { deactivated: true } : {}),
+  };
+};
+
+/**
+ * ABAK's accounts, with the roles assigned to each. The roster names no departments, so each
+ * person's department, and who holds the three transaction duties, is a placement for the demo.
+ * The ids are the seats the process scenarios use.
+ */
 const USERS: User[] = [
-  user('u_ceo', 'م. خالد الزهراني', 'الرئيس التنفيذي', 'ceo'),
-  user('u_dod', 'م. سامي القحطاني', 'مدير الأقسام / مكتب المشاريع', 'main_dept_manager'),
-  user('u_arc_m', 'م. ريم الشهري', 'مديرة قسم التصميم', 'dept_manager', 'ARC'),
-  user('u_str_m', 'م. فهد الدوسري', 'مدير القسم الإنشائي', 'dept_manager', 'STR'),
-  user('u_fls_m', 'م. ماجد الحربي', 'مدير قسم السلامة', 'dept_manager', 'FLS'),
-  user('u_mep_m', 'م. نايف العنزي', 'مدير قسم MEP', 'dept_manager', 'MEP'),
-  user('u_sup_m', 'م. تركي السبيعي', 'مدير قسم الإشراف', 'dept_manager', 'SUP'),
-  user('u_lic_m', 'م. هالة المطيري', 'مديرة قسم الرخص', 'dept_manager', 'LIC'),
-  user('u_geo_m', 'م. عادل الشمراني', 'مدير قسم الدراسات والاختبارات', 'dept_manager', 'GEO'),
-  user('u_mod_m', 'م. سلطان الغامدي', 'مدير قسم مدن', 'dept_manager', 'MOD'),
-  user('u_arc_e', 'م. سارة الغامدي', 'مهندسة معمارية', 'engineer', 'ARC'),
-  user('u_arc_e2', 'م. يوسف البقمي', 'مهندس معماري', 'engineer', 'ARC'),
-  user('u_str_e', 'م. عمر الشمري', 'مهندس إنشائي', 'engineer', 'STR'),
-  user('u_fls_e', 'م. لمى العتيبي', 'مهندسة سلامة', 'engineer', 'FLS'),
-  user('u_mep_e', 'م. بدر القرني', 'مهندس كهرباء', 'engineer', 'MEP'),
-  user('u_sup_e', 'م. أحمد العمري', 'مهندس إشراف', 'engineer', 'SUP'),
-  user('u_sup_e2', 'م. خالد المالكي', 'مهندس إشراف', 'engineer', 'SUP'),
-  user('u_geo_e', 'م. ياسر البلوي', 'مهندس جيوتقني', 'engineer', 'GEO'),
-  user('u_mod_e', 'م. هيفاء الرشيد', 'مهندسة — مدن', 'engineer', 'MOD'),
-  // OD-01: the three transaction roles are direct grants on existing employees, not new roles.
-  user('u_lic_o', 'نورة السالم', 'مسؤولة قسم الرخص', 'engineer', 'LIC', [{ perm: 'gov_transaction.prepare', scope: 'department' }, { perm: 'cost_request.create', scope: 'own' }]),
-  user('u_gov_m', 'عبدالرحمن الحربي', 'مدير المعاملات الحكومية', 'engineer', 'LIC', [{ perm: 'gov_transaction.assign', scope: 'all' }]),
-  user('u_exp', 'محمد الشهري', 'معقّب', 'engineer', 'LIC', [{ perm: 'gov_transaction.follow_up', scope: 'own' }]),
-  user('u_fin', 'منى العتيبي', 'المالية — محاسبة', 'accountant'),
-  user('u_sales', 'علي القحطاني', 'مندوب مبيعات (مسؤول الفرصة)', 'sales_rep'),
-  user('u_sm', 'وليد الحربي', 'مدير المبيعات', 'sales_manager'),
-  user('u_admin', 'مدير النظام', 'مدير النظام', 'admin'),
+  user('u_ceo', 'محمد العياف', 'm.alayaf@abak.com.sa', { roles: ['ceo'] }),
+  user('u_ceo2', 'صالح الشهري', 'salshehri@abak.com.sa', { roles: ['ceo'] }),
+  user('u_ceo3', 'مسفر القحطاني', 'mesfer@abak.com.sa', { roles: ['ceo'] }),
+  user('u_dod', 'حسن صلاح', 'hassan@abak.com.sa', { roles: ['main_dept_manager', 'dept_manager'], dept: 'LIC', extraDepts: ['MOD'] }),
+  user('u_arc_m', 'أمين النهاري', 'ameen@abak.com.sa', { roles: ['dept_manager', 'engineer'], dept: 'ARC' }),
+  user('u_str_m', 'عمر ربابعة', 'omar@abak.com.sa', { roles: ['dept_manager'], dept: 'STR', extraDepts: ['SUP'] }),
+  user('u_fls_m', 'يوسف الكميم', 'yousef@abak.com.sa', { roles: ['dept_manager'], dept: 'FLS' }),
+  user('u_mep_m', 'صهيب جمال الدين', 'suhaib.jamal@abak.com.sa', { roles: ['dept_manager'], dept: 'MEP' }),
+  user('u_geo_m', 'أكرم عبدالله', 'akram@abak.com.sa', { roles: ['dept_manager'], dept: 'GEO' }),
+  user('u_arc_e', 'أسامة الصامت', 'osamah.alsamet@abak.com.sa', { roles: ['engineer'], dept: 'ARC' }),
+  user('u_arc_e2', 'عبدالغني الموفق', 'abdulghani.almuwafiq@abak.com.sa', { roles: ['engineer'], dept: 'ARC' }),
+  user('u_str_e', 'خالد الخبيري', 'khaled@abak.com.sa', { roles: ['engineer'], dept: 'STR' }),
+  user('u_fls_e', 'انس صالح', 'anas_salah@abak.com.sa', { roles: ['engineer'], dept: 'FLS' }),
+  user('u_mep_e', 'حمزة الشرعبي', 'mep@abak.com.sa', { roles: ['engineer'], dept: 'MEP' }),
+  user('u_sup_e', 'محمد ضيف الله', 'mohammed.deifallah@abak.com.sa', { roles: ['engineer'], dept: 'SUP' }),
+  user('u_sup_e2', 'علاء احمد', 'alaa.ahmed@abak.com.sa', { roles: ['engineer'], dept: 'SUP' }),
+  user('u_geo_e', 'حمزة احمد', 'hamza_ahmed@abak.com.sa', { roles: ['engineer'], dept: 'GEO' }),
+  // OD-01: the three transaction duties are direct grants on existing employees, not new roles.
+  user('u_lic_o', 'أحمد البيطار', 'a.albittar@abak.com.sa', { roles: ['engineer'], dept: 'LIC', duty: 'مسؤول الرخص', grants: [{ perm: 'gov_transaction.prepare', scope: 'department' }, { perm: 'cost_request.create', scope: 'own' }] }),
+  user('u_gov_m', 'وليد بن عابد', 'w.abid@abak.com.sa', { roles: ['engineer'], dept: 'LIC', duty: 'مدير المعاملات الحكومية', grants: [{ perm: 'gov_transaction.assign', scope: 'all' }] }),
+  user('u_exp', 'هاشم علي', 'hashim.ali@abak.com.sa', { roles: ['engineer'], dept: 'LIC', duty: 'معقّب', grants: [{ perm: 'gov_transaction.follow_up', scope: 'own' }] }),
+  user('u_fin', 'أحمد العبيري', 'accounting@abak.com.sa', { roles: ['accountant'] }),
+  user('u_sales', 'رحمة طارق', 'client.relations1@abak.com.sa', { roles: ['sales_rep'] }),
+  user('u_sales2', 'ضحى العوام', 'hr@abak.com.sa', { roles: ['sales_rep'] }),
+  user('u_sales3', 'محمد والي', 'mwaly@abak.com.sa', { roles: ['sales_rep'] }),
+  user('u_sales4', 'عبدالملك الحصيني', 'abdulmalik@abak.com.sa', { roles: ['sales_rep', 'engineer'], dept: 'STR' }),
+  user('u_mod_e', 'محمد العطيات', 'client.relations2@abak.com.sa', { roles: ['sales_rep', 'engineer'], dept: 'MOD' }),
+  user('u_sales5', 'غادة العتيبي', 'ghadah@abak.com.sa', { roles: ['sales_rep'], deactivated: true }),
+  user('u_sm', 'عبدالله محسن', 'abdullah.mohsen@abak.com.sa', { roles: ['sales_manager'] }),
+  user('u_admin', 'مدير النظام', 'admin@abak.com.sa', { roles: ['admin'] }),
 ];
 
 const SETTINGS: Settings = {
@@ -268,9 +296,9 @@ export function buildSeed(): AppState {
   at(d(-45));
   const sup = step('u_fin', 'activation.approve', { activationId: 'ACT-2026-0026' }) as string;
   step('u_dod', 'project.receive', { projectId: sup, leadDept: 'SUP', departments: ['SUP'] });
-  step('u_sup_m', 'project.nominate_pm', { projectId: sup, nomineeId: 'u_sup_e' });
+  step('u_str_m', 'project.nominate_pm', { projectId: sup, nomineeId: 'u_sup_e' });
   step('u_dod', 'project.decide_pm', { projectId: sup, decision: 'approved' });
-  step('u_sup_m', 'project.assign_owner', { projectId: sup, scopeItemId: item(sup, 'الإشراف'), ownerId: 'u_sup_e2' });
+  step('u_str_m', 'project.assign_owner', { projectId: sup, scopeItemId: item(sup, 'الإشراف'), ownerId: 'u_sup_e2' });
   step('u_sup_e', 'project.apply_template', { projectId: sup, templateId: 'supervision' });
   step('u_sup_e', 'project.submit_payment_links', { projectId: sup, links: s.payments.filter((p) => p.projectId === sup).map((p) => ({ paymentId: p.id, kind: 'none' as const, ids: [] })) });
   step('u_fin', 'project.decide_payment_links', { projectId: sup, decision: 'confirmed' });
@@ -325,7 +353,7 @@ export function buildSeed(): AppState {
   step('u_arc_m', 'project.nominate_pm', { projectId: villa, nomineeId: 'u_arc_e' });
   step('u_dod', 'project.decide_pm', { projectId: villa, decision: 'approved' });
   step('u_arc_m', 'project.assign_owner', { projectId: villa, scopeItemId: item(villa, 'التصميم'), ownerId: 'u_arc_e' });
-  step('u_lic_m', 'project.assign_owner', { projectId: villa, scopeItemId: item(villa, 'رخصة'), ownerId: 'u_lic_o' });
+  step('u_dod', 'project.assign_owner', { projectId: villa, scopeItemId: item(villa, 'رخصة'), ownerId: 'u_lic_o' });
   step('u_arc_e', 'project.apply_template', { projectId: villa, templateId: 'design_permit' });
   step('u_arc_e', 'project.submit_payment_links', {
     projectId: villa, links: [

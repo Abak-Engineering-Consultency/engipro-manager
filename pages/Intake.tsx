@@ -5,7 +5,7 @@ import { useLookup, useStore } from '../app/store';
 import { isAfter } from '../domain/calendar';
 import { DEPARTMENTS, deptName } from '../domain/catalog';
 import { ACTIVATION_STATES, PAYMENT_CONDITIONS, PROJECT_STATES } from '../domain/labels';
-import { allows } from '../domain/permissions';
+import { allows, hasRole } from '../domain/permissions';
 import type { Activation, CeoException, Project } from '../domain/types';
 import {
   Card, CommandButton, DateText, Empty, Fact, Money, Notice, PageHeader, Pill, StatePill, Table, Tabs, Td, userOptions,
@@ -163,7 +163,7 @@ function ActivationCard({ a }: { a: Activation }) {
 
 function Exceptions() {
   const { state, me } = useStore();
-  const canRequest = me.roleId === 'dept_manager' || me.roleId === 'main_dept_manager';
+  const canRequest = hasRole(me, 'dept_manager', 'main_dept_manager');
   const opportunities = state.activations
     .filter((a) => a.status === 'pending_finance' && !state.exceptions.some((e) => e.opportunityId === a.opportunityId && ['requested', 'granted'].includes(e.status)))
     .map((a) => state.opportunities.find((o) => o.id === a.opportunityId))
@@ -311,8 +311,8 @@ function Existing({ projects, canRegister }: { projects: Project[]; canRegister:
             { name: 'title', label: 'اسم المشروع', type: 'text', required: true },
             { name: 'clientId', label: 'العميل', type: 'select', options: state.clients.map((c) => ({ value: c.id, label: `${c.name} (${c.id})` })), required: true },
             { name: 'deptCode', label: 'القسم', type: 'select', options: DEPARTMENTS.map((d) => ({ value: d.code, label: d.name })), required: true },
-            { name: 'pmId', label: 'مدير المشروع', type: 'select', options: userOptions(state.users, (u) => ['engineer', 'dept_manager'].includes(u.roleId)), required: true },
-            { name: 'followUpOwnerId', label: 'مسؤول متابعة العميل', type: 'select', options: userOptions(state.users, (u) => ['sales_rep', 'sales_manager'].includes(u.roleId)), required: true },
+            { name: 'pmId', label: 'مدير المشروع', type: 'select', options: userOptions(state.users, (u) => hasRole(u, 'engineer', 'dept_manager')), required: true },
+            { name: 'followUpOwnerId', label: 'مسؤول متابعة العميل', type: 'select', options: userOptions(state.users, (u) => hasRole(u, 'sales_rep', 'sales_manager')), required: true },
             { name: 'currentPhase', label: 'المرحلة الحالية', type: 'text' },
             { name: 'remainingWork', label: 'العمل المتبقي', type: 'textarea' },
             { name: 'documents', label: 'المستندات المتوفرة', type: 'textarea' },

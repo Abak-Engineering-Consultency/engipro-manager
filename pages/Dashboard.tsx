@@ -5,7 +5,7 @@ import { useLookup, useStore } from '../app/store';
 import { fmtLong, fmtMoney, isBefore } from '../domain/calendar';
 import { derivedActions, type DerivedAction } from '../domain/derived';
 import { DELIVERABLE_STATES, GOV_STATES, PROJECT_STATES } from '../domain/labels';
-import { allows, holds } from '../domain/permissions';
+import { allows, hasRole, holds } from '../domain/permissions';
 import { projectProgress, visibleProjects } from '../domain/selectors';
 import type { AppState, ProjectState, User } from '../domain/types';
 import { Card, cn, DateText, Empty, Kpi, Pill, Progress, StatePill, Table, Td } from '../components/ui';
@@ -29,7 +29,7 @@ export const Dashboard: React.FC = () => {
   const myTasks = state.tasks.filter((t) => t.ownerId === me.id && !['completed', 'cancelled'].includes(t.status));
   const overdueTasks = myTasks.filter((t) => isBefore(t.dueDate, state.now));
   const isFinance = holds(me, 'collection.confirm');
-  const isPortfolio = allows(me, 'project.read') || me.roleId === 'dept_manager';
+  const isPortfolio = allows(me, 'project.read') || hasRole(me, 'dept_manager');
   const isGov = holds(me, 'gov_transaction.prepare') || holds(me, 'gov_transaction.assign') || holds(me, 'gov_transaction.follow_up');
   const isSales = holds(me, 'opportunity.work');
 
@@ -239,9 +239,9 @@ function GovPanel({ state, me }: { state: AppState; me: User }) {
 
 function Collections({ state, me }: { state: AppState; me: User }) {
   const owned = state.projects.filter((p) => (p.opportunityId ? state.opportunities.find((o) => o.id === p.opportunityId)?.ownerId === me.id : p.followUpOwnerId === me.id));
-  const pays = state.payments.filter((p) => (me.roleId === 'sales_manager' ? !!p.escalatedAt : owned.some((o) => o.id === p.projectId)) && p.invoicing === 'invoiced' && p.collection !== 'fully_collected');
+  const pays = state.payments.filter((p) => (hasRole(me, 'sales_manager') ? !!p.escalatedAt : owned.some((o) => o.id === p.projectId)) && p.invoicing === 'invoiced' && p.collection !== 'fully_collected');
   return (
-    <Card title={me.roleId === 'sales_manager' ? 'تحصيل مصعّد إليك' : 'متابعة التحصيل'} pad={false}>
+    <Card title={hasRole(me, 'sales_manager') ? 'تحصيل مصعّد إليك' : 'متابعة التحصيل'} pad={false}>
       {pays.length === 0 ? <div className="p-5"><Empty title="لا مطالبات مفتوحة" /></div> : (
         <ul className="divide-y divide-line">
           {pays.map((p) => (

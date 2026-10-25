@@ -1,5 +1,5 @@
 import { isAfter } from './calendar';
-import { allows } from './permissions';
+import { allows, deptsOf, hasRole, inDept } from './permissions';
 import { startGate } from './selectors';
 import type { AppState, ISO, User } from './types';
 
@@ -106,23 +106,23 @@ export function derivedActions(s: AppState, u: User | undefined): DerivedAction[
   }
 
   // ── Department manager ────────────────────────────────────────────────────
-  if (u.roleId === 'dept_manager') {
-    for (const p of s.projects.filter((x) => x.status === 'awaiting_assignment' && x.receivedAt && x.leadDept === u.deptCode && (!x.pmNomination || x.pmNomination.status === 'returned'))) {
+  if (hasRole(u, 'dept_manager')) {
+    for (const p of s.projects.filter((x) => x.status === 'awaiting_assignment' && x.receivedAt && inDept(u, x.leadDept) && (!x.pmNomination || x.pmNomination.status === 'returned'))) {
       add({ key: `nom:${p.id}`, title: 'رشّح مدير المشروع', detail: `${p.id} — ${p.title}`, link: `/projects/${p.id}`, kind: 'work', since: p.receivedAt, projectId: p.id });
     }
     for (const p of s.projects.filter((x) => ['preparing', 'in_progress', 'suspended'].includes(x.status))) {
-      const missing = p.scopeItems.filter((i) => i.deptCode === u.deptCode && !i.ownerId);
+      const missing = p.scopeItems.filter((i) => inDept(u, i.deptCode) && !i.ownerId);
       if (missing.length) add({ key: `own:${p.id}`, title: 'عيّن مسؤولي بنود قسمك', detail: `${p.id} — ${missing.length} بند`, link: `/projects/${p.id}?tab=team`, kind: 'work', projectId: p.id });
-      for (const c of p.changeRequests.filter((x) => x.status === 'pending' && x.kind === 'track' && !p.multiDept && p.leadDept === u.deptCode)) {
+      for (const c of p.changeRequests.filter((x) => x.status === 'pending' && x.kind === 'track' && !p.multiDept && inDept(u, p.leadDept))) {
         add({ key: `chg:${c.id}`, title: 'قرار مسار تنفيذ مستقل', detail: c.reason, link: `/projects/${p.id}?tab=changes`, kind: 'approval', projectId: p.id });
       }
     }
   }
-  if (allows(u, 'deliverable.review', { depts: [u.deptCode] })) {
-    for (const d of s.deliverables.filter((x) => x.deptCode === u.deptCode && x.status === 'internal_review' && x.revisions[x.revisions.length - 1]?.createdBy !== u.id)) {
+  if (allows(u, 'deliverable.review', { depts: deptsOf(u) })) {
+    for (const d of s.deliverables.filter((x) => inDept(u, x.deptCode) && x.status === 'internal_review' && x.revisions[x.revisions.length - 1]?.createdBy !== u.id)) {
       add({ key: `rev:${d.id}`, title: 'مراجعة داخلية لمخرج', detail: `${d.title} — ${d.projectId}`, link: `/projects/${d.projectId}?tab=deliverables&d=${d.id}`, kind: 'review', since: d.revisions[d.revisions.length - 1]?.reviewRounds.at(-1)?.submittedAt, projectId: d.projectId });
     }
-    for (const d of s.deliverables.filter((x) => x.deptCode === u.deptCode && x.status === 'deemed_acceptance_review' && x.deemedRequest?.by !== u.id)) {
+    for (const d of s.deliverables.filter((x) => inDept(u, x.deptCode) && x.status === 'deemed_acceptance_review' && x.deemedRequest?.by !== u.id)) {
       add({ key: `deem:${d.id}`, title: 'اعتماد قبول ضمني وفق العقد', detail: `${d.title} — ${d.projectId}`, link: `/projects/${d.projectId}?tab=deliverables&d=${d.id}`, kind: 'review', since: d.deemedRequest?.at, projectId: d.projectId });
     }
   }
@@ -199,7 +199,7 @@ export function derivedActions(s: AppState, u: User | undefined): DerivedAction[
   for (const p of s.projects) for (const c of p.changeRequests.filter((x) => x.kind === 'paid_addition' && x.status === 'with_sales' && !x.quotationId)) {
     if (oppOwner(p.id) === u.id) add({ key: `padd:${c.id}`, title: 'جهّز عرض الإضافة المدفوعة عبر المبيعات', detail: `${p.id} — ${c.reason}`, link: `/projects/${p.id}?tab=changes`, kind: 'work', since: c.requestedAt, projectId: p.id });
   }
-  if (u.roleId === 'sales_manager') {
+  if (hasRole(u, 'sales_manager')) {
     for (const pay of s.payments.filter((x) => x.escalatedAt && x.collection !== 'fully_collected')) {
       add({ key: `esc:${pay.id}`, title: `تحصيل متأخر مصعّد (${pay.escalation === 'early' ? 'مبكر' : 'آلي'})`, detail: `${pay.label} — ${pay.projectId}`, link: `/projects/${pay.projectId}?tab=payments&p=${pay.id}`, kind: 'follow_up', since: pay.escalatedAt, projectId: pay.projectId });
     }

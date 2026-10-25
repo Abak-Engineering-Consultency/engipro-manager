@@ -72,8 +72,14 @@ export const ROLE_GRANTS: Record<RoleId, Grant[]> = {
 
 export const SCOPE_NAMES: Record<Scope, string> = { own: 'الخاص (العضوية)', department: 'القسم', all: 'الكل' };
 
-/** Role grants plus the person's direct grants (OD-01: transaction roles are direct grants). */
-export const effectiveGrants = (u: User): Grant[] => [...ROLE_GRANTS[u.roleId], ...u.grants];
+export const rolesOf = (u: User): RoleId[] => [u.roleId, ...(u.extraRoles ?? [])];
+export const hasRole = (u: User | undefined, ...roles: RoleId[]) => !!u && rolesOf(u).some((r) => roles.includes(r));
+export const deptsOf = (u: User): DeptCode[] => (u.deptCode ? [u.deptCode, ...(u.extraDepts ?? [])] : []);
+export const inDept = (u: User | undefined, code: DeptCode | undefined) => !!u && !!code && deptsOf(u).includes(code);
+export const isActive = (u: User) => !u.deactivated;
+
+/** Grants of every role the person holds plus their direct grants (OD-01). A deactivated account holds none. */
+export const effectiveGrants = (u: User): Grant[] => (u.deactivated ? [] : [...rolesOf(u).flatMap((r) => ROLE_GRANTS[r]), ...u.grants]);
 
 export interface ScopeContext {
   /** Departments the record belongs to (department scope). */
@@ -88,7 +94,7 @@ export function allows(u: User | undefined, perm: Perm, ctx: ScopeContext = {}):
   return effectiveGrants(u).some((gr) => {
     if (gr.perm !== perm) return false;
     if (gr.scope === 'all') return true;
-    if (gr.scope === 'department') return !!u.deptCode && !!ctx.depts?.includes(u.deptCode);
+    if (gr.scope === 'department') return deptsOf(u).some((d) => ctx.depts?.includes(d));
     return !!ctx.own;
   });
 }

@@ -37,8 +37,15 @@ export interface User {
   id: UserId;
   name: string;
   title: string;
+  email: string;
+  /** The first role listed for the person; `extraRoles` holds the rest (e.g. «مدير القسم، مهندس»). */
   roleId: RoleId;
+  extraRoles?: RoleId[];
   deptCode?: DeptCode;
+  /** Further departments a manager also runs. */
+  extraDepts?: DeptCode[];
+  /** A deactivated account keeps its history but cannot act or be assigned. */
+  deactivated?: boolean;
   /** Direct grants on top of the role (OD-01: licensing officer, transactions manager, expeditor). */
   grants: Grant[];
   /** The manager this person reports to (escalation level 2). */

@@ -5,7 +5,7 @@ import { useLookup, useStore } from '../../app/store';
 import { dateKey, fmtShort, isAfter, isWorkingDay, weekday } from '../../domain/calendar';
 import { deptName, PLAN_TEMPLATES } from '../../domain/catalog';
 import { SUSPENSION_TYPES, TASK_STATES } from '../../domain/labels';
-import { allows } from '../../domain/permissions';
+import { allows, deptsOf, hasRole } from '../../domain/permissions';
 import { schedulePhases } from '../../domain/schedule';
 import type { AppState, Phase, PlanTask, Project } from '../../domain/types';
 import {
@@ -289,7 +289,7 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
   const scheduled = useMemo(() => schedulePhases(p.startedAt ?? state.now, draft, p.dayType, state.settings), [draft, p.startedAt, p.dayType, state.now, state.settings]);
   const deptCodes = new Set(p.departments.map((d) => d.deptCode));
   const memberIds = new Set(p.members.map((m) => m.userId));
-  const owners = state.users.filter((u) => memberIds.has(u.id) || (u.deptCode && deptCodes.has(u.deptCode) && ['engineer', 'dept_manager'].includes(u.roleId)));
+  const owners = state.users.filter((u) => memberIds.has(u.id) || (!u.deactivated && deptsOf(u).some((d) => deptCodes.has(d)) && hasRole(u, 'engineer', 'dept_manager')));
   const allTasks = draft.flatMap((ph) => ph.tasks);
   const sched = new Map(scheduled.flatMap((ph) => ph.tasks).map((t) => [t.id, t]));
   const started = !!p.startedAt;

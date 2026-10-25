@@ -18,7 +18,7 @@ fs.mkdirSync(out, { recursive: true });
   const as = async (name) => {
     await page.keyboard.press('Escape');
     await page.locator('button[title^="تبديل المستخدم"]').click();
-    await page.getByPlaceholder('بحث بالاسم أو المسمى').fill(name);
+    await page.getByPlaceholder('بحث بالاسم أو المسمى أو البريد').fill(name);
     await page.locator('button', { hasText: name }).last().click();
     await page.waitForTimeout(200);
   };
@@ -60,49 +60,49 @@ fs.mkdirSync(out, { recursive: true });
   await go('/dashboard');
 
   console.log('Finance approves the activation');
-  await as('منى العتيبي');
+  await as('أحمد العبيري');
   await go('/intake');
   await cmd('اعتماد المالية', { within: 'ACT-2026-0031' });
   await cmd('إعادة معالجة الحدث', { within: 'ACT-2026-0031' });
   await shot('intake-after-approve');
 
   console.log('Director receives');
-  await as('م. سامي القحطاني');
+  await as('حسن صلاح');
   await go('/projects/PRJ-2026-0006');
   await shot('project-awaiting');
   await cmd('استلام المشروع وتحديد الأقسام', { select: { 'القسم الرئيسي': 'التصميم' } });
 
   console.log('Department manager nominates, Director approves');
-  await as('م. ريم الشهري');
+  await as('أمين النهاري');
   await go('/projects/PRJ-2026-0006');
-  await cmd('ترشيح مدير المشروع', { select: { 'المرشح': 'م. سارة الغامدي — مهندسة معمارية' } });
-  await as('م. سامي القحطاني');
+  await cmd('ترشيح مدير المشروع', { select: { 'المرشح': 'أسامة الصامت — مهندس · التصميم' } });
+  await as('حسن صلاح');
   await go('/projects/PRJ-2026-0006');
   await cmd('اعتماد مدير المشروع');
   await expectText('تجهيز', 'project is in preparation');
 
   console.log('PM tries to start too early (AC-02)');
-  await as('م. سارة الغامدي');
+  await as('أسامة الصامت');
   await go('/projects/PRJ-2026-0006?tab=plan');
   await cmd('بدء التنفيذ');
   await shot('plan-gate');
 
   console.log('Owners assigned by each department manager');
-  await as('م. ريم الشهري');
+  await as('أمين النهاري');
   await go('/projects/PRJ-2026-0006?tab=team');
   await shot('team-before');
-  await cmd('تعيين مسؤول', { select: { 'مسؤول': 'م. سارة الغامدي — مهندسة معمارية' } });
-  await cmd('تعيين مسؤول', { select: { 'مسؤول': 'م. يوسف البقمي — مهندس معماري' } });
-  await as('م. فهد الدوسري');
+  await cmd('تعيين مسؤول', { select: { 'مسؤول': 'أسامة الصامت — مهندس · التصميم' } });
+  await cmd('تعيين مسؤول', { select: { 'مسؤول': 'عبدالغني الموفق — مهندس · التصميم' } });
+  await as('عمر ربابعة');
   await go('/projects/PRJ-2026-0006?tab=team');
   await cmd('تعيين مسؤول', {});
-  await as('م. هالة المطيري');
+  await as('حسن صلاح');
   await go('/projects/PRJ-2026-0006?tab=team');
   await cmd('تعيين مسؤول', {});
   await shot('team-after');
 
   console.log('PM plans; payment links; finance confirms; kickoff; start');
-  await as('م. سارة الغامدي');
+  await as('أسامة الصامت');
   await go('/projects/PRJ-2026-0006?tab=plan');
   await cmd('من بنود العرض');
   await shot('plan-items');
@@ -121,11 +121,11 @@ fs.mkdirSync(out, { recursive: true });
   await page.waitForTimeout(300);
   console.log(`  ${(await dlg.count()) ? '✗' : '✓'} payment links sent to finance`);
 
-  await as('منى العتيبي');
+  await as('أحمد العبيري');
   await go('/projects/PRJ-2026-0006?tab=payments');
   await cmd('مطابق للاتفاق — تأكيد');
 
-  await as('م. سارة الغامدي');
+  await as('أسامة الصامت');
   await go('/projects/PRJ-2026-0006?tab=plan');
   await cmd('تسجيل الاجتماع', { fill: { 'المحضر': 'اجتماع افتتاحي مع العميل: قنوات التواصل ومواعيد التسليم' } });
   await cmd('بدء التنفيذ');
@@ -136,10 +136,10 @@ fs.mkdirSync(out, { recursive: true });
   await go('/projects/PRJ-2026-0006?tab=deliverables&d=DLV-2026-0006-01');
   await cmd('رفع ملفات Rev 00', { fill: { 'أسماء الملفات': 'concept-A-Rev00.pdf' } });
   await cmd('رفع للمراجعة الداخلية');
-  await as('م. ريم الشهري');
+  await as('أمين النهاري');
   await go('/projects/PRJ-2026-0006?tab=deliverables&d=DLV-2026-0006-01');
   await cmd('قرار المراجعة الداخلية', { fill: { 'الملاحظة': 'مطابق' } });
-  await as('م. سارة الغامدي');
+  await as('أسامة الصامت');
   await go('/projects/PRJ-2026-0006?tab=deliverables&d=DLV-2026-0006-01');
   await cmd('إرسال موثق للعميل', { fill: { 'المستلم لدى العميل': 'م. عبدالعزيز الراشد' } });
   await cmd('ملاحظات العميل', { fill: { 'نص الملاحظات': 'تعديل المدخل الرئيسي' } });

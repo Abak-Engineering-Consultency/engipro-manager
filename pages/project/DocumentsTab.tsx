@@ -4,7 +4,8 @@ import { useStore } from '../../app/store';
 import { fmtDateTime } from '../../domain/calendar';
 import { DEPARTMENTS } from '../../domain/catalog';
 import { revLabel } from '../../domain/engine/delivery';
-import type { Project, User } from '../../domain/types';
+import { hasRole, inDept } from '../../domain/permissions';
+import type { DeptCode, Project, User } from '../../domain/types';
 import { Card, cn, Notice } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
 
@@ -14,17 +15,17 @@ interface Node { name: string; files?: string[]; children?: Node[]; visible: boo
 function folderAccess(p: Project, u: User, access: TabProps['access']) {
   const caps = p.members.filter((m) => m.userId === u.id).map((m) => m.capacity);
   const isPm = p.pmId === u.id;
-  const tech = ['dept_manager', 'item_owner', 'reviewer', 'project_manager'].some((c) => caps.includes(c as never)) || ['main_dept_manager', 'ceo', 'admin'].includes(u.roleId);
+  const tech = ['dept_manager', 'item_owner', 'reviewer', 'project_manager'].some((c) => caps.includes(c as never)) || hasRole(u, 'main_dept_manager', 'ceo', 'admin');
   const transactionsOnly = caps.length > 0 && caps.every((c) => ['licensing_officer', 'expeditor'].includes(c));
   return {
     client: access !== 'finance' && !transactionsOnly,
-    engineering: (dept?: string) => access === 'full' && !transactionsOnly && (isPm || ['main_dept_manager', 'ceo', 'admin'].includes(u.roleId) || u.deptCode === dept),
+    engineering: (dept?: string) => access === 'full' && !transactionsOnly && (isPm || hasRole(u, 'main_dept_manager', 'ceo', 'admin') || inDept(u, dept as DeptCode)),
     review: access === 'full' && tech,
     issued: !transactionsOnly,
     gov: access === 'full' || caps.includes('licensing_officer') || caps.includes('expeditor'),
     visits: access === 'full' && !transactionsOnly,
     closeout: access === 'full' && !transactionsOnly,
-    finance: u.roleId === 'accountant' || u.roleId === 'admin',
+    finance: hasRole(u, 'accountant', 'admin'),
   };
 }
 
