@@ -5,8 +5,9 @@ import { GOV_STATES } from '../domain/labels';
 import { holds } from '../domain/permissions';
 import { govTimes, projectAccess } from '../domain/selectors';
 import type { GovState } from '../domain/types';
+import { Clock, Hourglass, Landmark, UserPlus } from 'lucide-react';
 import { GovDrawer, GovTable, visibleGov, weeklyUpdate } from '../components/gov/GovViews';
-import { Card, Input, Kpi, PageHeader, Rule, Select } from '../components/ui';
+import { Card, Input, Kpi, PageHeader, Select } from '../components/ui';
 
 type Filter = 'mine' | 'open' | 'all' | GovState;
 
@@ -42,27 +43,30 @@ export const Gov: React.FC = () => {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="المعاملات الحكومية"
-        subtitle={<>جولات التقديم، الرسوم، المعقّب والتحديث الأسبوعي، ووقت المكتب منفصلًا عن انتظار الجهة <Rule>GT-01…GT-11</Rule> <Rule>SC-01</Rule></>}
-        eyebrow={holds(me, 'gov_transaction.assign') ? 'مدير المعاملات الحكومية — صلاحية مباشرة (OD-01)' : undefined}
+        subtitle={<>المفتوحة: <span className="font-semibold text-ink">{open.length}</span>{holds(me, 'gov_transaction.assign') ? ' · أنت مدير المعاملات' : ''}</>}
       />
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="معاملات مفتوحة" value={open.length} />
-        <Kpi label="لدى الجهة الآن" value={atAuthority.length} hint={`متوسط الانتظار الحالي ${avgWait} يوم`} />
-        <Kpi label="تحديث أسبوعي متأخر" value={late} tone={late ? 'danger' : undefined} />
-        <Kpi label="بانتظار إسناد معقّب" value={open.filter((g) => g.status === 'submitted' && !g.expeditorId).length} tone="waiting" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label="معاملات مفتوحة" value={open.length} icon={<Landmark size={20} />} />
+        <Kpi label="لدى الجهة الآن" value={atAuthority.length} hint={atAuthority.length ? `متوسط الانتظار ${avgWait} يوم` : undefined} icon={<Hourglass size={20} />} />
+        <Kpi label="تحديث أسبوعي متأخر" value={late} icon={<Clock size={20} />} tone={late ? 'danger' : undefined} />
+        {(() => {
+          const unassigned = open.filter((g) => g.status === 'submitted' && !g.expeditorId).length;
+          return <Kpi label="بانتظار إسناد معقّب" value={unassigned} icon={<UserPlus size={20} />} tone={unassigned ? 'waiting' : undefined} />;
+        })()}
       </div>
       <Card pad={false}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
-          <Select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className="!w-auto">
+        <div className="flex flex-wrap items-center gap-3 border-b border-line p-4">
+          <Select value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className="!w-auto" aria-label="تصفية">
             <option value="mine">المسندة إليّ</option>
             <option value="open">المفتوحة</option>
             <option value="all">الكل</option>
             {(Object.keys(GOV_STATES) as GovState[]).map((s) => <option key={s} value={s}>{GOV_STATES[s].label}</option>)}
           </Select>
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث برقم المعاملة أو الطلب أو الجهة أو المشروع" className="!w-80 max-w-full" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث برقم المعاملة أو الطلب أو الجهة أو المشروع" className="!w-80 max-w-full" aria-label="بحث" />
+          <span className="ms-auto text-sm text-muted">{items.length} معاملة</span>
         </div>
         <GovTable items={items} onOpen={setOpen} />
       </Card>

@@ -3,7 +3,7 @@ import { useStore } from '../app/store';
 import { fmtDate, fromInputDate, toInputDate } from '../domain/calendar';
 import { allows } from '../domain/permissions';
 import type { Settings } from '../domain/types';
-import { Button, Card, Field, Input, Notice, PageHeader, Rule } from '../components/ui';
+import { Button, Card, Field, Input, Notice, PageHeader, Code } from '../components/ui';
 
 type NumKey = { [K in keyof Settings]: Settings[K] extends number ? K : never }[keyof Settings];
 
@@ -21,7 +21,7 @@ const NUMBERS: { key: NumKey; label: string; unit: string; source: string }[] = 
 
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-/** 11-E — company values. Contract terms take precedence (D18). */
+/** Company default values. Contract terms take precedence. */
 export const SettingsPage: React.FC = () => {
   const { state, me, dispatch } = useStore();
   const canEdit = allows(me, 'admin.settings');
@@ -30,18 +30,18 @@ export const SettingsPage: React.FC = () => {
   const dirty = JSON.stringify(draft) !== JSON.stringify(state.settings);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
-        title="الإعدادات القابلة للضبط"
-        subtitle="قيم الشركة الافتراضية من القسم 11-E. شروط العقد تتقدم عليها دائمًا (D18): مهلة الرد ونوع الأيام وبند القبول الضمني ومهلة كل دفعة تأتي من العرض المقبول."
+        title="الإعدادات"
+        subtitle="القيم الافتراضية للشركة — شروط العقد تتقدم عليها دائمًا"
         actions={canEdit && <Button disabled={!dirty} onClick={() => dispatch('settings.update', { patch: draft }, 'حُفظت الإعدادات')}>حفظ</Button>}
       />
-      {!canEdit && <Notice tone="waiting">للاطلاع فقط — التعديل يتطلب صلاحية admin.settings (تصرّف بصفة «مدير النظام»).</Notice>}
+      {!canEdit && <Notice tone="muted">للاطلاع فقط — التعديل لمدير النظام.</Notice>}
 
       <Card title="المهل والتذكيرات والتصعيد">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
           {NUMBERS.map((n) => (
-            <Field key={n.key} label={n.label} hint={<span className="flex items-center gap-1">المصدر في اللوحة: <Rule>{n.source}</Rule></span>}>
+            <Field key={n.key} label={n.label} hint={<span className="flex items-center gap-1">المرجع <Code>{n.source}</Code></span>}>
               <div className="flex items-center gap-2">
                 <Input type="number" min={0} dir="ltr" disabled={!canEdit} value={draft[n.key]} onChange={(e) => setDraft({ ...draft, [n.key]: Number(e.target.value) })} className="max-w-28" />
                 <span className="text-sm text-muted">{n.unit}</span>
@@ -51,21 +51,21 @@ export const SettingsPage: React.FC = () => {
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="تقويم العمل" subtitle="أيام العمل الافتراضية الأحد–الخميس؛ «يوم عمل» يُحسب بالتقويم (SC-01 · OD-06)">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card title="تقويم العمل" subtitle="أيام العمل التي يُحسب بها «يوم عمل»">
           <div className="flex flex-wrap gap-2">
             {DAYS.map((d, i) => (
-              <label key={d} className="flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-sm">
+              <label key={d} className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${draft.workWeek.includes(i) ? 'border-brand-200 bg-brand-50 text-brand-800' : 'border-line text-ink-2'}`}>
                 <input type="checkbox" className="accent-brand-600" disabled={!canEdit} checked={draft.workWeek.includes(i)}
                   onChange={(e) => setDraft({ ...draft, workWeek: e.target.checked ? [...draft.workWeek, i].sort() : draft.workWeek.filter((x) => x !== i) })} />
                 {d}
               </label>
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted">ساعات رمضان يحددها مسؤول النظام لاحقًا، وتُطبق حتى ذلك ساعات الدوام العادية.</p>
         </Card>
         <Card title="الإجازات الرسمية">
-          <ul className="mb-3 divide-y divide-line">
+          {!draft.holidays.length && <p className="mb-4 text-sm text-muted">لا إجازات مسجّلة.</p>}
+          <ul className="mb-4 divide-y divide-line">
             {draft.holidays.map((h) => (
               <li key={h.date} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-ink">{h.name}</span>
@@ -77,7 +77,7 @@ export const SettingsPage: React.FC = () => {
             ))}
           </ul>
           {canEdit && (
-            <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-wrap items-end gap-3 border-t border-line pt-4">
               <Field label="التاريخ"><Input type="date" dir="ltr" value={holiday.date} onChange={(e) => setHoliday({ ...holiday, date: e.target.value })} /></Field>
               <Field label="الاسم"><Input value={holiday.name} onChange={(e) => setHoliday({ ...holiday, name: e.target.value })} /></Field>
               <Button variant="secondary" disabled={!holiday.date || !holiday.name.trim()} onClick={() => { setDraft({ ...draft, holidays: [...draft.holidays, { date: toInputDate(fromInputDate(holiday.date)), name: holiday.name.trim() }] }); setHoliday({ date: '', name: '' }); }}>إضافة</Button>

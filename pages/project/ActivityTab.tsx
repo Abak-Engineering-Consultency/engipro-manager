@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLookup, useStore } from '../../app/store';
 import { fmtDateTime } from '../../domain/calendar';
-import { Pill, Rule, Select } from '../../components/ui';
+import { cn, Empty, Select } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
 
 const KINDS: { id: string; label: string }[] = [
@@ -17,7 +17,7 @@ const KINDS: { id: string; label: string }[] = [
   { id: 'closure', label: 'الإغلاق' },
 ];
 
-/** F12 / X-03 — every decision with its actor, time and reason, never edited. */
+/** Every decision with its actor, time and reason, never edited. */
 export const ActivityTab: React.FC<TabProps> = ({ project, access }) => {
   const { state } = useStore();
   const { userName } = useLookup();
@@ -30,26 +30,26 @@ export const ActivityTab: React.FC<TabProps> = ({ project, access }) => {
     .slice()
     .reverse();
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-ink-2">سجل لا يُعدَّل ولا يُحذف منه: من فعل ماذا ومتى ولماذا. <Rule>F12</Rule> <Rule>X-03</Rule></p>
-        <Select value={kind} onChange={(e) => setKind(e.target.value)} className="max-w-56">
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted">{events.length} حدث · من فعل ماذا ومتى ولماذا</p>
+        <Select value={kind} onChange={(e) => setKind(e.target.value)} className="max-w-56" aria-label="نوع الحدث">
           {KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
         </Select>
       </div>
-      <ol className="divide-y divide-line rounded-lg border border-line">
-        {events.map((e) => (
-          <li key={e.id} className="grid gap-1 px-3 py-2.5 sm:grid-cols-[9rem_1fr_auto] sm:items-center">
-            <span className="text-xs tabular text-muted">{fmtDateTime(e.at)}</span>
-            <span className="text-sm text-ink">
-              {e.summary}
-              <span className="block text-xs text-muted">{e.actorId === 'system' ? 'النظام' : userName(e.actorId)}</span>
-            </span>
-            <Pill tone="muted"><code dir="ltr" className="text-[11px]">{e.type}</code></Pill>
-          </li>
-        ))}
-        {!events.length && <li className="px-3 py-6 text-center text-sm text-muted">لا أحداث.</li>}
-      </ol>
+      {events.length ? (
+        <ol className="relative space-y-5 border-s border-line ps-6">
+          {events.map((e) => (
+            <li key={e.id} className="relative">
+              <span className={cn('absolute -start-[31px] top-1 h-3 w-3 rounded-full border-2 border-card', e.actorId === 'system' ? 'bg-line-strong' : 'bg-brand-500')} />
+              <p className="text-sm text-ink">{e.summary}</p>
+              <p className="mt-0.5 text-xs text-muted">
+                {e.actorId === 'system' ? 'النظام' : userName(e.actorId)} · <span className="tabular">{fmtDateTime(e.at)}</span>
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : <Empty title="لا أحداث" />}
     </div>
   );
 };

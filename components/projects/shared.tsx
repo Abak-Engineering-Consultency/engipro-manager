@@ -18,7 +18,7 @@ export function StepBadge({ tone, children }: { tone: Tone; children: ReactNode 
   return <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium leading-5 ${TONE_CLS[tone]}`}>{children}</span>;
 }
 
-/** Names of the closure/cancellation chain steps (AD-06, AD-07). */
+/** Names of the closure/cancellation chain steps. */
 export const STEP_NAMES: Record<ChainStep['key'], string> = {
   dept_managers: 'مديرو الأقسام (بالتوازي)',
   director: 'مدير الأقسام',
@@ -90,4 +90,18 @@ export function nextStep(s: AppState, p: Project): { text: string; who?: string;
         ? { text: 'مسوّى ماليًا', tone: 'success' }
         : { text: 'التحصيل والتسوية مستمران', who: 'المالية', tone: 'muted' };
   }
+}
+
+export const isLate = (p: Project) => !!p.contractEndDate && !!p.expectedEndDate && Date.parse(p.expectedEndDate) > Date.parse(p.contractEndDate);
+
+/** Why an open project needs a manager's attention now, or null when it is on track. */
+export function attentionReason(s: AppState, p: Project): string | null {
+  if (['operationally_closed', 'cancelled'].includes(p.status)) return null;
+  if (p.status === 'suspended') return 'معلّق';
+  if (s.deliverables.some((d) => d.projectId === p.id && d.status === 'blocked_pending_payment')) return 'تسليم ممنوع حتى السداد';
+  if (isLate(p)) return 'متأخر عن الموعد التعاقدي';
+  if (p.status === 'preparing' && startGate(s, p).length) return 'بوابة البدء غير مستوفاة';
+  const exc = p.exceptionId ? s.exceptions.find((e) => e.id === p.exceptionId) : undefined;
+  if (exc && ['granted', 'expired'].includes(exc.status)) return 'يعمل باستثناء الرئيس التنفيذي';
+  return null;
 }

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
+import { Columns3, List } from 'lucide-react';
 import { useStore } from '../../app/store';
-import { Kpi, Rule, Tabs } from '../../components/ui';
+import { cn, Tabs } from '../../components/ui';
 import { NewTaskButton, TaskDrawer } from '../../components/work/TaskDrawer';
 import { isOpen, isOverdue, TaskBoard, TaskList } from '../../components/work/TaskViews';
 import type { TabProps } from './ProjectPage';
 
 type Filter = 'open' | 'generated' | 'all';
 
-/** The project's shared tasks (TK-01…TK-11) — manual, kick-off actions, authority comments, collections. */
+/** The project's shared tasks — manual, kick-off actions, authority comments, collections. */
 export const ProjectTasksTab: React.FC<TabProps> = ({ project }) => {
   const { state } = useStore();
   const [open, setOpen] = useState<string | null>(null);
@@ -18,15 +19,29 @@ export const ProjectTasksTab: React.FC<TabProps> = ({ project }) => {
     .filter((t) => (filter === 'open' ? isOpen(t) : filter === 'generated' ? t.source !== 'manual' : true))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
+  const overdue = all.filter((t) => isOverdue(t, state.now)).length;
+  const blocked = all.filter((t) => t.status === 'blocked').length;
+  const stats: { label: string; value: number; tone?: string }[] = [
+    { label: 'مفتوحة', value: all.filter(isOpen).length },
+    { label: 'متأخرة', value: overdue, tone: overdue ? 'text-st-danger' : undefined },
+    { label: 'معطّلة', value: blocked, tone: blocked ? 'text-st-waiting' : undefined },
+    { label: 'مولّدة من مسارات أخرى', value: all.filter((t) => t.source !== 'manual').length },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="مفتوحة" value={all.filter(isOpen).length} />
-        <Kpi label="متأخرة" value={all.filter((t) => isOverdue(t, state.now)).length} tone={all.some((t) => isOverdue(t, state.now)) ? 'danger' : undefined} />
-        <Kpi label="معطّلة" value={all.filter((t) => t.status === 'blocked').length} tone={all.some((t) => t.status === 'blocked') ? 'waiting' : undefined} />
-        <Kpi label="مولّدة من مسارات أخرى" value={all.filter((t) => t.source !== 'manual').length} hint="بمفتاح منع تكرار (TK-11)" />
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <dl className="flex flex-wrap gap-x-8 gap-y-3">
+          {stats.map((s) => (
+            <div key={s.label}>
+              <dt className="text-xs text-muted">{s.label}</dt>
+              <dd className={cn('text-xl font-bold tabular text-ink', s.tone)}>{s.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <NewTaskButton presetLink={{ type: 'project', id: project.id, label: `${project.id} — ${project.title}`, projectId: project.id }} onCreated={setOpen} />
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 grow">
           <Tabs<Filter>
             tabs={[{ id: 'open', label: 'المفتوحة' }, { id: 'generated', label: 'المولّدة' }, { id: 'all', label: 'الكل' }]}
@@ -34,17 +49,11 @@ export const ProjectTasksTab: React.FC<TabProps> = ({ project }) => {
             onChange={setFilter}
           />
         </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-ink-2">
-            <input type="checkbox" className="accent-brand-600" checked={board} onChange={(e) => setBoard(e.target.checked)} />
-            عرض اللوحة
-          </label>
-          <NewTaskButton presetLink={{ type: 'project', id: project.id, label: `${project.id} — ${project.title}`, projectId: project.id }} onCreated={setOpen} />
+        <div className="flex rounded-lg border border-line bg-sunken p-1" role="group" aria-label="طريقة العرض">
+          <button onClick={() => setBoard(false)} aria-pressed={!board} title="قائمة" aria-label="قائمة" className={cn('rounded-md p-1.5 transition-all', !board ? 'bg-card text-brand-700 shadow-sm' : 'text-muted hover:text-ink')}><List size={18} /></button>
+          <button onClick={() => setBoard(true)} aria-pressed={board} title="لوحة" aria-label="لوحة" className={cn('rounded-md p-1.5 transition-all', board ? 'bg-card text-brand-700 shadow-sm' : 'text-muted hover:text-ink')}><Columns3 size={18} /></button>
         </div>
       </div>
-      <p className="text-xs text-muted">
-        الإجراءات الرسمية (اعتماد، مراجعة، تسليم، تحصيل) لا تظهر هنا كمهام؛ تظهر في «إجراءاتي» لأصحابها من سجلاتها <Rule>TK-02</Rule>
-      </p>
       {board ? <TaskBoard tasks={shown} onOpen={setOpen} /> : <TaskList tasks={shown} onOpen={setOpen} />}
       <TaskDrawer taskId={open} onClose={() => setOpen(null)} />
     </div>

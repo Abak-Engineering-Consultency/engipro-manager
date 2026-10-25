@@ -1,11 +1,11 @@
 import React from 'react';
-import { CheckCircle2, Circle, FileText, Folder, Lock } from 'lucide-react';
+import { CheckCircle2, Circle, FileStack, FileText, Folder, FolderTree, HardDrive, Lock } from 'lucide-react';
 import { useStore } from '../../app/store';
 import { fmtDateTime } from '../../domain/calendar';
 import { DEPARTMENTS } from '../../domain/catalog';
 import { revLabel } from '../../domain/engine/delivery';
 import type { Project, User } from '../../domain/types';
-import { Card, cn, Notice, Pill, Rule } from '../../components/ui';
+import { Card, cn, Notice } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
 
 interface Node { name: string; files?: string[]; children?: Node[]; visible: boolean; why: string; restricted?: boolean }
@@ -51,13 +51,11 @@ export const DocumentsTab: React.FC<TabProps> = ({ project, access }) => {
   ];
 
   return (
-    <div className="space-y-4">
-      <Notice tone="waiting" title="محاكاة Nextcloud">
-        الملفات هنا تمثيل للهيكل والصلاحيات المعتمدة في القسم 10. في ABAK ERP يحتفظ Nextcloud بالملفات ويملك ERP البيانات والصلاحيات والاعتماد (X-04).
-      </Notice>
+    <div className="space-y-6">
+      <Notice tone="progress">هيكل مساحة المشروع في Nextcloud وصلاحياتها. الملفات تُحفظ في Nextcloud، والبيانات والاعتمادات في النظام.</Notice>
 
-      <Card title="دورة مساحة المشروع" subtitle="لا مجلد مكرر لنفس المشروع، والمساحة لا تُفتح قبل ضبط الصلاحيات" actions={<Rule>NX-01</Rule>}>
-        <ol className="grid gap-2 sm:grid-cols-5">
+      <Card title="مساحة المشروع" icon={<HardDrive size={18} />} subtitle={space.status === 'open' ? 'مفتوحة' : 'لم تُفتح بعد — تُفتح بعد ضبط الصلاحيات'}>
+        <ol className="grid gap-x-4 gap-y-3 sm:grid-cols-5">
           {[
             ['اعتماد التفعيل', project.activationIds.length > 0 || !!project.exceptionId || project.createdFrom === 'pre_system'],
             ['إنشاء / ربط بمعرف ثابت', space.status !== 'not_created'],
@@ -65,41 +63,44 @@ export const DocumentsTab: React.FC<TabProps> = ({ project, access }) => {
             ['تحديد العضوية', project.members.length > 1],
             ['ضبط الصلاحيات ثم الفتح', space.status === 'open'],
           ].map(([label, done], i) => (
-            <li key={i} className={cn('flex items-center gap-2 rounded-md border px-3 py-2 text-sm', done ? 'border-st-success/30 bg-st-success-bg text-st-success' : 'border-line text-muted')}>
-              {done ? <CheckCircle2 size={16} /> : <Circle size={16} />} {label as string}
+            <li key={i} className="flex items-center gap-2 text-sm">
+              {done ? <CheckCircle2 size={18} className="shrink-0 text-st-success" aria-label="تم" /> : <Circle size={18} className="shrink-0 text-faint" aria-label="لم يتم" />}
+              <span className={done ? 'text-ink' : 'text-muted'}>{label as string}</span>
             </li>
           ))}
         </ol>
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-4 border-t border-line pt-3 text-xs text-muted">
           المسار: <span className="ltr-iso">{space.path ?? `ABAK Projects/${project.id}`}</span> · المعرف: <span className="ltr-iso">{space.folderId ?? '—'}</span> · آخر مزامنة: {fmtDateTime(space.lastSyncAt)}
         </p>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
-        <Card title={`ABAK Projects / ${project.id}`} subtitle="الهيكل القياسي — يظهر لك ما تسمح به صلاحيتك فقط" actions={<Rule>NX-02</Rule>}>
+      <div className="grid items-start gap-6 xl:grid-cols-[1fr_22rem]">
+        <Card title={<span className="ltr-iso">ABAK Projects / {project.id}</span>} icon={<FolderTree size={18} />} subtitle="يظهر لك ما تسمح به صلاحيتك فقط">
           <ul className="space-y-1 text-sm">
             {tree.map((n) => <FolderRow key={n.name} node={n} depth={0} />)}
             <li className="mt-2 border-t border-line pt-2">
-              <FolderRow node={{ name: 'FINANCE / RESTRICTED', visible: a.finance, why: 'عقود، إثباتات مالية، تكاليف، صرف الموردين — لا يرث صلاحيات فريق المشروع', restricted: true, files: state.payments.filter((p) => p.projectId === project.id && p.invoiceRef).map((p) => `${p.invoiceRef} — ${p.label}`) }} depth={0} />
+              <FolderRow node={{ name: 'FINANCE / RESTRICTED', visible: a.finance, why: 'مالية فقط — لا يرث صلاحيات فريق المشروع', restricted: true, files: state.payments.filter((p) => p.projectId === project.id && p.invoiceRef).map((p) => `${p.invoiceRef} — ${p.label}`) }} depth={0} />
             </li>
           </ul>
         </Card>
-        <Card title="دورة المستند" subtitle="نسخة العمل ≠ الإصدار الرسمي" actions={<Rule>NX-04</Rule>}>
-          <ol className="space-y-2 text-sm">
+        <Card title="دورة المستند" icon={<FileStack size={18} />}>
+          <ol className="space-y-3 text-sm">
             {[
               ['Working / Draft', 'ملف عمل قابل للتعديل'],
-              ['Under Review', 'رفع للمراجعة؛ مدير القسم أو المراجع المفوّض يقرر'],
-              ['Approved Internally', 'مربوط بـ File ID + checksum + النسخة'],
-              ['Issued Rev 00/01…', 'نسخة ثابتة + مرجع الإصدار + من أرسلها ومتى ولمن'],
-              ['Client Comments', 'إصدار جديد؛ لا يُستبدل ملف سبق إصداره'],
-            ].map(([t, d]) => (
-              <li key={t} className="rounded-md border border-line px-3 py-2">
-                <p className="font-medium text-ink ltr-iso">{t}</p>
-                <p className="text-xs text-muted">{d}</p>
+              ['Under Review', 'مدير القسم أو المراجع المفوّض يقرر'],
+              ['Approved Internally', 'مربوط بمعرّف الملف وبصمته ونسخته'],
+              ['Issued Rev 00/01…', 'نسخة ثابتة: من أرسلها ومتى ولمن'],
+              ['Client Comments', 'إصدار جديد؛ لا يُستبدل ملف صادر'],
+            ].map(([t, d], i) => (
+              <li key={t} className="flex gap-3">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700 tabular">{i + 1}</span>
+                <div className="min-w-0">
+                  <p className="ltr-iso font-medium text-ink">{t}</p>
+                  <p className="text-xs text-muted">{d}</p>
+                </div>
               </li>
             ))}
           </ol>
-          <p className="mt-3 text-xs text-muted">المهندس لا يحذف إصدارًا رسميًا، وسحب العضوية يسحب الوصول (NX-03).</p>
         </Card>
       </div>
     </div>
@@ -109,11 +110,11 @@ export const DocumentsTab: React.FC<TabProps> = ({ project, access }) => {
 function FolderRow({ node, depth }: { node: Node; depth: number }) {
   return (
     <>
-      <div className={cn('flex items-center gap-2 rounded px-2 py-1', !node.visible && 'opacity-60')} style={{ paddingInlineStart: 8 + depth * 18 }}>
-        {node.visible ? <Folder size={16} className={node.restricted ? 'text-st-danger' : 'text-accent-500'} /> : <Lock size={15} className="text-faint" />}
-        <span className={cn('ltr-iso', node.visible ? 'text-ink' : 'text-muted')}>{node.name}</span>
-        {!node.visible && <Pill tone="muted">لا وصول</Pill>}
-        {node.why && <span className="truncate text-xs text-muted">— {node.why}</span>}
+      <div className={cn('flex items-center gap-2 rounded-md px-2 py-1.5', node.visible && 'hover:bg-page')} style={{ paddingInlineStart: 8 + depth * 18 }}>
+        {node.visible ? <Folder size={16} className={node.restricted ? 'text-st-danger' : 'text-brand-500'} /> : <Lock size={15} className="text-faint" />}
+        <span className={cn('ltr-iso', node.visible ? 'font-medium text-ink' : 'text-faint')}>{node.name}</span>
+        {!node.visible && <span className="text-xs text-faint">لا وصول</span>}
+        {node.why && node.visible && <span className="truncate text-xs text-muted">· {node.why}</span>}
       </div>
       {node.visible && node.files?.map((f) => (
         <div key={f} className="flex items-center gap-2 px-2 py-0.5 text-xs text-ink-2" style={{ paddingInlineStart: 26 + depth * 18 }}>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertTriangle, Clock, Coins, Receipt } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLookup, useStore } from '../app/store';
 import { dateKey, fmtDate } from '../domain/calendar';
@@ -7,7 +8,7 @@ import { ACTIVATION_STATES, COST_STATES, PAYMENT_CONDITIONS, PROJECT_STATES, VIS
 import { allows } from '../domain/permissions';
 import type { PaymentItem, Visit } from '../domain/types';
 import { ThreeDims, paymentTotals } from '../components/finance/PaymentViews';
-import { CommandButton, DateText, Empty, Id, Kpi, Money, PageHeader, Pill, Rule, StatePill, Table, Td, Tabs } from '../components/ui';
+import { CommandButton, DateText, Empty, Kpi, Money, PageHeader, Pill, StatePill, Table, Td, Tabs } from '../components/ui';
 
 type TabId = 'activations' | 'mapping' | 'evidence' | 'claims' | 'transfers' | 'overdue' | 'costs' | 'settlement' | 'presystem' | 'visits';
 
@@ -56,35 +57,41 @@ export const Finance: React.FC = () => {
   const payLink = (p: PaymentItem) => `/projects/${p.projectId}?tab=payments&p=${p.id}`;
   const payCell = (p: PaymentItem) => (
     <Td>
-      <Link className="hover:underline" to={payLink(p)}><Id>{p.id}</Id></Link>
-      <p className="text-sm font-medium text-ink">{p.label}</p>
-      <p className="max-w-[260px] truncate text-xs text-muted">{project(p.projectId)?.title}</p>
+      <Link className="text-sm font-medium text-ink hover:text-brand-700 hover:underline" to={payLink(p)}>{p.label}</Link>
+      <p className="max-w-[280px] truncate text-xs text-muted">{project(p.projectId)?.title} · <span className="ltr-iso">{p.id}</span></p>
     </Td>
   );
+  /** A record named first; its number recedes under it. */
+  const named = (title: React.ReactNode, id: string, to?: string) => (
+    <Td>
+      {to ? <Link className="text-sm font-medium text-ink hover:text-brand-700 hover:underline" to={to}>{title}</Link> : <p className="text-sm font-medium text-ink">{title}</p>}
+      <p className="ltr-iso text-xs text-muted">{id}</p>
+    </Td>
+  );
+  const waiting = tabs.reduce((n, x) => n + x.count, 0);
 
   return (
-    <div>
-      <PageHeader title="المالية" subtitle={<>كل خطوة في مسار المشاريع تنتظر المالية — الاستحقاق والفاتورة والتحصيل أبعاد منفصلة <Rule>A5</Rule> <Rule>X-05</Rule></>} />
-      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="مستحقة ضمن المهلة" value={<Money v={t.due} />} tone={t.due ? 'waiting' : undefined} />
-        <Kpi label="متأخرة" value={<Money v={t.overdue} />} tone={t.overdue ? 'danger' : undefined} hint={`${overdue.length} دفعة`} />
-        <Kpi label="المحصل هذا الشهر" value={<Money v={collectedMonth} />} />
-        <Kpi label="تكاليف معتمدة غير مصروفة" value={<Money v={unpaidCosts} />} hint={`${costs.length} طلب`} />
+    <div className="space-y-6">
+      <PageHeader title="المالية" subtitle={<>بانتظار المالية: <span className="font-semibold text-ink">{waiting}</span> بندًا</>} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label="متأخرة بعد المهلة" value={<Money v={t.overdue} />} icon={<AlertTriangle size={20} />} tone={t.overdue ? 'danger' : undefined} hint={`${overdue.length} دفعة`} />
+        <Kpi label="مستحقة ضمن المهلة" value={<Money v={t.due} />} icon={<Clock size={20} />} tone={t.due ? 'waiting' : undefined} />
+        <Kpi label="المحصل هذا الشهر" value={<Money v={collectedMonth} />} icon={<Coins size={20} />} />
+        <Kpi label="تكاليف معتمدة غير مصروفة" value={<Money v={unpaidCosts} />} icon={<Receipt size={20} />} hint={`${costs.length} طلب`} />
       </div>
 
-      <div className="rounded-lg border border-line bg-card shadow-card">
-        <div className="px-2"><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
-        <div className="p-4">
+      <div className="rounded-xl border border-line bg-card shadow-card">
+        <div className="px-5"><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+        <div className="p-5">
           {tab === 'activations' && (activations.length ? (
-            <Table head={['الطلب', 'الفرصة', 'العرض', 'طلبه', 'الحالة', '']}>
+            <Table head={['الفرصة', 'العرض', 'طلبه', 'الحالة', '']}>
               {activations.map((a) => (
                 <tr key={a.id}>
-                  <Td><Id>{a.id}</Id></Td>
-                  <Td className="text-sm">{state.opportunities.find((o) => o.id === a.opportunityId)?.title}</Td>
-                  <Td><span className="ltr-iso text-xs">{a.quotationId}</span></Td>
+                  {named(state.opportunities.find((o) => o.id === a.opportunityId)?.title, a.id)}
+                  <Td><span className="ltr-iso text-xs text-muted">{a.quotationId}</span></Td>
                   <Td className="text-sm">{userName(a.requestedBy)} · <DateText iso={a.requestedAt} /></Td>
                   <Td><StatePill s={ACTIVATION_STATES[a.status]} /></Td>
-                  <Td><Link className="text-sm text-brand-700 hover:underline" to="/intake">القرار في «التفعيل والاستلام»</Link></Td>
+                  <Td><Link className="text-sm font-medium text-brand-700 hover:underline" to="/intake">اتخاذ القرار</Link></Td>
                 </tr>
               ))}
             </Table>
@@ -94,10 +101,10 @@ export const Finance: React.FC = () => {
             <Table head={['المشروع', 'أُرسل', 'مدير المشروع', '']}>
               {mapping.map((p) => (
                 <tr key={p.id}>
-                  <Td><Id>{p.id}</Id><p className="text-sm">{p.title}</p></Td>
+                  {named(p.title, p.id, `/projects/${p.id}?tab=payments`)}
                   <Td><DateText iso={p.paymentMapping.submittedAt} /></Td>
                   <Td className="text-sm">{userName(p.pmId)}</Td>
-                  <Td><Link className="text-sm text-brand-700 hover:underline" to={`/projects/${p.id}?tab=payments`}>مراجعة الربط والقرار <Rule>PJ-07</Rule></Link></Td>
+                  <Td><Link className="text-sm font-medium text-brand-700 hover:underline" to={`/projects/${p.id}?tab=payments`}>مراجعة الربط</Link></Td>
                 </tr>
               ))}
             </Table>
@@ -109,7 +116,7 @@ export const Finance: React.FC = () => {
                 <tr key={p.id}>
                   {payCell(p)}
                   <Td><ul className="text-xs text-ink-2">{p.evidence.map((e, i) => <li key={i}>{e.kind}{e.note && ` — ${e.note}`}</li>)}</ul></Td>
-                  <Td><Money v={p.amount} /></Td>
+                  <Td><Money v={p.amount} className="font-medium text-ink" /></Td>
                   <Td>{allows(me, 'payment.verify_entitlement') && (
                     <CommandButton command="payment.verify_evidence" base={{ paymentId: p.id }} label="تحقق"
                       fields={[{ name: 'decision', label: 'القرار', type: 'select', options: [{ value: 'accepted', label: 'قبول الإثبات' }, { value: 'objected', label: 'اعتراض قبل الفاتورة' }] }, { name: 'note', label: 'ملاحظة', type: 'textarea' }]} success="سُجّل التحقق" />
@@ -125,7 +132,7 @@ export const Finance: React.FC = () => {
                 <tr key={p.id}>
                   {payCell(p)}
                   <Td className="text-sm">{PAYMENT_CONDITIONS[p.condition]}</Td>
-                  <Td><Money v={p.amount} /></Td>
+                  <Td><Money v={p.amount} className="font-medium text-ink" /></Td>
                   <Td><DateText iso={p.graceUntil} /></Td>
                   <Td>{canAct && <CommandButton command="payment.issue_claim" base={{ paymentId: p.id }} label="إصدار المطالبة" fields={[{ name: 'invoiceRef', label: 'مرجع الفاتورة', type: 'text', required: true }]} success="صدرت المطالبة — مهمة تحصيل لمسؤول الفرصة" />}</Td>
                 </tr>
@@ -144,29 +151,29 @@ export const Finance: React.FC = () => {
                 </tr>
               ))}
             </Table>
-          ) : <Empty title="لا تحويلات بانتظار المطابقة" hint="إفادة العميل بالتحويل تُحال هنا؛ لا تُعد الدفعة محصلة قبل تأكيد المالية." />)}
+          ) : <Empty title="لا تحويلات بانتظار المطابقة" />)}
 
           {tab === 'overdue' && (overdue.length ? (
-            <Table head={['الدفعة', 'الأبعاد', 'متأخرة منذ', 'المتبقي', 'التصعيد', 'آخر متابعة']}>
+            <Table head={['الدفعة', 'الحالة', 'متأخرة منذ', 'المتبقي', 'التصعيد', 'آخر متابعة']}>
               {overdue.map((p) => (
                 <tr key={p.id}>
                   {payCell(p)}
                   <Td><ThreeDims pay={p} /></Td>
                   <Td className="text-st-danger"><DateText iso={p.overdueAt} /></Td>
                   <Td><Money v={p.amount - p.collected} /></Td>
-                  <Td>{p.escalatedAt ? <Pill tone="danger">{p.escalation === 'early' ? 'مبكر' : 'آلي'} — {fmtDate(p.escalatedAt)}</Pill> : <span className="text-xs text-muted">بعد {state.settings.collectionEscalationDays} يومًا <Rule>DL-13</Rule></span>}</Td>
+                  <Td>{p.escalatedAt ? <Pill tone="danger">{p.escalation === 'early' ? 'مبكر' : 'آلي'} — {fmtDate(p.escalatedAt)}</Pill> : <span className="text-xs text-muted">بعد {state.settings.collectionEscalationDays} يومًا</span>}</Td>
                   <Td className="text-xs">{p.followUps.at(-1) ? <>{p.followUps.at(-1)!.response}<span className="block text-muted">{fmtDate(p.followUps.at(-1)!.at)}</span></> : '—'}</Td>
                 </tr>
               ))}
             </Table>
-          ) : <Empty title="لا متأخرات" hint="الدفعة لا تُعد متأخرة قبل انتهاء المهلة (grace_until)." />)}
+          ) : <Empty title="لا متأخرات" />)}
 
           {tab === 'costs' && (costs.length ? (
             <Table head={['الطلب', 'المشروع', 'الجهة', 'الحالة', 'المتبقي', '']}>
               {costs.map((c) => (
                 <tr key={c.id}>
-                  <Td><Link className="hover:underline" to={`/projects/${c.projectId}?tab=costs&c=${c.id}`}><Id>{c.id}</Id></Link><p className="text-sm">{c.service}</p></Td>
-                  <Td><Id>{c.projectId}</Id></Td>
+                  {named(c.service, c.id, `/projects/${c.projectId}?tab=costs&c=${c.id}`)}
+                  <Td className="max-w-[220px] truncate text-sm text-ink-2">{project(c.projectId)?.title}</Td>
                   <Td className="text-sm">{c.vendor}</Td>
                   <Td><StatePill s={COST_STATES[c.status]} /></Td>
                   <Td><Money v={c.amount - c.paid} /></Td>
@@ -177,9 +184,9 @@ export const Finance: React.FC = () => {
           ) : <Empty title="لا تكاليف معتمدة بانتظار الصرف" />)}
 
           {tab === 'settlement' && (
-            <div className="space-y-4">
+            <div className="space-y-8">
               <section>
-                <h3 className="mb-2 text-sm font-semibold text-ink">مراجعة مالية في سلسلة الإغلاق أو الإلغاء <Rule>AD-06</Rule> <Rule>AD-07</Rule></h3>
+                <h3 className="mb-3 text-sm font-semibold text-ink">قرار المالية في الإغلاق أو الإلغاء</h3>
                 {chains.length ? (
                   <Table head={['المشروع', 'الطلب', 'السبب', 'المستحقات المفتوحة', '']}>
                     {chains.map(({ p, c }) => {
@@ -187,10 +194,10 @@ export const Finance: React.FC = () => {
                       const mine = c.steps.find((s) => s.status === 'pending')?.approverIds.includes(me.id);
                       return (
                         <tr key={`${p.id}-${c.kind}`}>
-                          <Td><Link className="hover:underline" to={`/projects/${p.id}?tab=closure`}><Id>{p.id}</Id></Link><p className="text-sm">{p.title}</p></Td>
-                          <Td>{c.kind === 'closure' ? 'إغلاق' : 'إلغاء'}</Td>
+                          {named(p.title, p.id, `/projects/${p.id}?tab=closure`)}
+                          <Td className="text-sm">{c.kind === 'closure' ? 'إغلاق' : 'إلغاء'}</Td>
                           <Td className="text-xs">{c.reason}</Td>
-                          <Td><Money v={open.remaining} /><p className="text-xs text-muted">الإغلاق لا يُسقط المستحقات</p></Td>
+                          <Td><Money v={open.remaining} className="font-medium text-ink" /></Td>
                           <Td>{mine && (
                             <CommandButton command="chain.decide" base={{ projectId: p.id, kind: c.kind }} label="قرار المالية"
                               fields={[{ name: 'decision', label: 'القرار', type: 'select', options: [{ value: 'approved', label: 'اعتماد (الأرصدة والتكاليف والالتزامات مراجعة)' }, { value: 'returned', label: 'إعادة بملاحظة' }] }, { name: 'note', label: 'ملاحظة', type: 'textarea' }]} success="سُجّل القرار" />
@@ -202,14 +209,14 @@ export const Finance: React.FC = () => {
                 ) : <p className="text-sm text-muted">لا طلبات إغلاق أو إلغاء بانتظار المالية.</p>}
               </section>
               <section>
-                <h3 className="mb-2 text-sm font-semibold text-ink">الإغلاق المالي (مستقل عن التشغيلي) <Rule>A4</Rule></h3>
+                <h3 className="mb-3 text-sm font-semibold text-ink">الإغلاق المالي</h3>
                 {toSettle.length ? (
                   <Table head={['المشروع', 'الحالة', 'غير محصل', '']}>
                     {toSettle.map((p) => {
                       const open = paymentTotals(state.payments.filter((x) => x.projectId === p.id && x.entitlement !== 'not_due'));
                       return (
                         <tr key={p.id}>
-                          <Td><Link className="hover:underline" to={`/projects/${p.id}?tab=payments`}><Id>{p.id}</Id></Link><p className="text-sm">{p.title}</p></Td>
+                          {named(p.title, p.id, `/projects/${p.id}?tab=payments`)}
                           <Td><StatePill s={PROJECT_STATES[p.status]} /></Td>
                           <Td><Money v={open.remaining} className={open.remaining ? 'text-st-waiting' : ''} /></Td>
                           <Td>{allows(me, 'project.review_settlement') && <CommandButton command="project.settle" base={{ projectId: p.id }} variant="secondary" label="تسوية وإغلاق مالي" fields={[{ name: 'note', label: 'ملاحظة التسوية', type: 'textarea', required: true }]} success="أُغلق ماليًا" />}</Td>
@@ -226,23 +233,25 @@ export const Finance: React.FC = () => {
             <Table head={['المشروع', 'المرحلة الحالية', 'المتبقي', 'المستندات', '']}>
               {presystem.map((p) => (
                 <tr key={p.id}>
-                  <Td><Link className="hover:underline" to={`/projects/${p.id}`}><Id>{p.id}</Id></Link><p className="text-sm">{p.title}</p></Td>
+                  {named(p.title, p.id, `/projects/${p.id}`)}
                   <Td className="text-sm">{p.preSystem!.currentPhase}</Td>
                   <Td className="text-xs">{p.preSystem!.remainingWork}</Td>
                   <Td className="text-xs">{p.preSystem!.documents}</Td>
-                  <Td>{allows(me, 'payment.verify_entitlement') && <CommandButton command="project.finance_review_existing" base={{ projectId: p.id }} label="مراجعة الأرصدة السابقة" intro="دون إعادة إصدار فواتير سابقة؛ بعدها يدخل المشروع التجهيز (AD-08)." fields={[{ name: 'note', label: 'نتيجة المراجعة', type: 'textarea', required: true }]} success="روجعت الأرصدة" />}</Td>
+                  <Td>{allows(me, 'payment.verify_entitlement') && <CommandButton command="project.finance_review_existing" base={{ projectId: p.id }} label="مراجعة الأرصدة السابقة" intro="دون إعادة إصدار فواتير سابقة؛ بعدها يدخل المشروع التجهيز." fields={[{ name: 'note', label: 'نتيجة المراجعة', type: 'textarea', required: true }]} success="روجعت الأرصدة" />}</Td>
                 </tr>
               ))}
             </Table>
           ) : <Empty title="لا مشاريع قائمة بانتظار مراجعة الأرصدة" />)}
 
           {tab === 'visits' && (visitGroups.length ? (
-            <div className="space-y-4">
-              <p className="text-xs text-muted">مطالبة يدوية حسب العقد قد تجمع عدة زيارات؛ الزيارة المطالب بها تُعلَّم ولا تُحتسب مرتين، والسداد ≠ الإنجاز. <Rule>VS-08</Rule> <Rule>AC-12</Rule></p>
+            <div className="space-y-8">
               {visitGroups.map(({ pid, visits }) => (
-                <section key={pid || 'none'} className="rounded-lg border border-line">
-                  <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-page px-3 py-2">
-                    <span className="text-sm font-semibold text-ink">{pid ? <>{pid} — {project(pid)?.title}</> : 'زيارات غير مرتبطة بمشروع'}</span>
+                <section key={pid || 'none'}>
+                  <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                    <span>
+                      <span className="block text-sm font-semibold text-ink">{pid ? project(pid)?.title : 'زيارات غير مرتبطة بمشروع'}</span>
+                      {pid && <span className="ltr-iso text-xs text-muted">{pid}</span>}
+                    </span>
                     {canAct && (
                       <CommandButton command="visit.claim" base={{}} label="مطالبة يدوية" title="مطالبة يدوية بزيارات قابلة للفوترة"
                         fields={[
@@ -252,10 +261,11 @@ export const Finance: React.FC = () => {
                         ]} success="صدرت المطالبة — مهمة تحصيل لمسؤول الفرصة" />
                     )}
                   </header>
+                  <div className="overflow-hidden rounded-lg border border-line">
                   <Table head={['الزيارة', 'النوع', 'التاريخ الفعلي', 'المسؤول', 'الحالة']}>
                     {visits.map((v) => (
                       <tr key={v.id}>
-                        <Td><Link className="hover:underline" to={`/visits?id=${v.id}`}><Id>{v.id}</Id></Link><p className="text-sm">{v.purpose}</p></Td>
+                        {named(v.purpose, v.id, `/visits?id=${v.id}`)}
                         <Td className="text-sm">{visitTypeName(v.type)}</Td>
                         <Td><DateText iso={v.actualEnd ?? v.plannedStart} /></Td>
                         <Td className="text-sm">{userName(v.ownerId)}</Td>
@@ -263,6 +273,7 @@ export const Finance: React.FC = () => {
                       </tr>
                     ))}
                   </Table>
+                  </div>
                 </section>
               ))}
             </div>

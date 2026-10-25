@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, ChevronLeft, ChevronRight, Clock, Flag, GitBranch } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, Clock, GitBranch } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { dateKey, fmtDate } from '../../domain/calendar';
 import { TASK_STATES } from '../../domain/labels';
@@ -54,25 +54,25 @@ export function TaskList({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: string
   return (
     <Table head={['المهمة', 'السجل المرتبط', 'المسؤول', 'الموعد', 'الأولوية', 'الحالة']}>
       {tasks.map((t) => (
-        <tr key={t.id} className="cursor-pointer hover:bg-sunken" onClick={() => onOpen(t.id)}>
+        <tr key={t.id} className={cn('cursor-pointer hover:bg-page', !isOpen(t) && 'opacity-70')} onClick={() => onOpen(t.id)}>
           <Td>
             <div className="flex flex-col gap-0.5">
-              <span className="font-medium text-ink">{t.title}</span>
+              <span className={cn('font-medium text-ink', t.status === 'completed' && 'line-through decoration-faint')}>{t.title}</span>
               <span className="flex items-center gap-2">
                 <Id>{t.id}</Id>
-                {t.source !== 'manual' && <span className="inline-flex items-center gap-1 text-[11px] text-muted"><GitBranch size={11} />{SOURCE_NAMES[t.source]}</span>}
+                {t.source !== 'manual' && <span className="inline-flex items-center gap-1 text-xs text-muted"><GitBranch size={12} />{SOURCE_NAMES[t.source]}</span>}
               </span>
             </div>
           </Td>
           <Td><RecordLinkText task={t} /></Td>
           <Td>
-            <span className="inline-flex items-center gap-2"><Avatar user={user(t.ownerId)} size={22} /><span className="text-xs">{user(t.ownerId)?.name}</span></span>
+            <span className="inline-flex items-center gap-2 whitespace-nowrap"><Avatar user={user(t.ownerId)} size={24} /><span className="text-sm text-ink-2">{user(t.ownerId)?.name}</span></span>
           </Td>
           <Td><DueText task={t} /></Td>
           <Td><Pill tone={PRIORITY[t.priority].tone}>{PRIORITY[t.priority].label}</Pill></Td>
           <Td>
             <StatePill s={TASK_STATES[t.status]} />
-            {t.status === 'blocked' && t.blockReason && <p className="mt-1 max-w-[200px] truncate text-[11px] text-st-waiting">{t.blockReason.note}</p>}
+            {t.status === 'blocked' && t.blockReason && <p className="mt-1 max-w-[200px] truncate text-xs text-st-waiting">{t.blockReason.note}</p>}
           </Td>
         </tr>
       ))}
@@ -85,34 +85,31 @@ const BOARD: TaskState[] = ['new', 'in_progress', 'blocked', 'in_review', 'compl
 export function TaskBoard({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: string) => void }) {
   const { user } = useLookup();
   return (
-    <div className="flex gap-3 overflow-x-auto pb-2">
+    <div className="flex gap-4 overflow-x-auto pb-2">
       {BOARD.map((col) => {
         const items = tasks.filter((t) => t.status === col);
         return (
-          <div key={col} className="flex w-72 shrink-0 flex-col rounded-lg border border-line bg-page">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <StatePill s={TASK_STATES[col]} />
-              <span className="rounded bg-card px-1.5 text-xs text-muted tabular">{items.length}</span>
+          <div key={col} className="flex w-72 shrink-0 flex-col rounded-xl bg-sunken">
+            <div className="flex items-center justify-between px-3 pt-3 pb-2">
+              <span className="text-sm font-semibold text-ink">{TASK_STATES[col].label}</span>
+              <span className="rounded-full bg-card px-2 text-xs font-medium text-muted tabular">{items.length}</span>
             </div>
-            <div className="flex max-h-[520px] min-h-[120px] flex-col gap-2 overflow-y-auto p-2">
+            <div className="flex max-h-[520px] min-h-[120px] flex-col gap-2 overflow-y-auto p-2 pt-0">
               {items.map((t) => (
-                <button key={t.id} onClick={() => onOpen(t.id)} className="rounded-md border border-line bg-card p-3 text-start shadow-card hover:border-brand-300">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <Id>{t.id}</Id>
-                    <span className="flex items-center gap-1">
-                      {t.priority === 'high' && <Flag size={13} className="text-st-danger" />}
-                      {t.status === 'blocked' && <AlertCircle size={13} className="text-st-waiting" />}
-                    </span>
+                <button key={t.id} onClick={() => onOpen(t.id)} className="rounded-lg border border-line bg-card p-3 text-start shadow-card transition-shadow hover:border-brand-300 hover:shadow-md">
+                  <div className="mb-1 flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-ink">{t.title}</p>
+                    {t.priority !== 'medium' && <Pill tone={PRIORITY[t.priority].tone} className="shrink-0 text-[10px]">{PRIORITY[t.priority].label}</Pill>}
                   </div>
-                  <p className="text-sm font-medium text-ink">{t.title}</p>
-                  {t.link && <p className="mt-1 truncate text-[11px] text-muted">{t.link.label}</p>}
-                  <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] text-ink-2"><Avatar user={user(t.ownerId)} size={20} />{user(t.ownerId)?.name}</span>
+                  {t.link && <p className="truncate text-xs text-muted">{t.link.label}</p>}
+                  {t.status === 'blocked' && t.blockReason && <p className="mt-1 flex items-center gap-1 truncate text-xs text-st-waiting"><AlertCircle size={12} className="shrink-0" />{t.blockReason.note}</p>}
+                  <div className="mt-3 flex items-center justify-between border-t border-line pt-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-ink-2"><Avatar user={user(t.ownerId)} size={20} />{user(t.ownerId)?.name}</span>
                     <DueText task={t} />
                   </div>
                 </button>
               ))}
-              {!items.length && <p className="py-6 text-center text-xs text-faint">لا شيء</p>}
+              {!items.length && <p className="rounded-lg border border-dashed border-line-strong py-6 text-center text-xs text-faint">لا شيء</p>}
             </div>
           </div>
         );
@@ -142,7 +139,7 @@ export function TaskCalendar({ tasks, onOpen }: { tasks: Task[]; onOpen: (id: st
   const tone = (t: Task) => (t.status === 'completed' ? 'bg-st-success-bg text-st-success' : t.status === 'blocked' ? 'bg-st-waiting-bg text-st-waiting' : isOverdue(t, state.now) ? 'bg-st-danger-bg text-st-danger' : 'bg-brand-50 text-brand-700');
   return (
     <div className="overflow-hidden rounded-lg border border-line">
-      <div className="flex items-center justify-between border-b border-line bg-page px-3 py-2">
+      <div className="flex items-center justify-between border-b border-line bg-page px-4 py-2.5">
         <p className="font-semibold text-ink">{monthFmt.format(first)}</p>
         <div className="flex gap-1">
           <button className="rounded p-1 hover:bg-sunken" onClick={() => setOffset((o) => o - 1)} aria-label="الشهر السابق"><ChevronRight size={18} /></button>

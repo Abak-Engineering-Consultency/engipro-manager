@@ -20,7 +20,7 @@ let fail = 0;
   const go = async (r) => { await page.goto(`${base}/#${r}`); await page.waitForTimeout(350); };
   const as = async (name) => {
     await page.keyboard.press('Escape');
-    await page.locator('header button[title^="تبديل المستخدم"]').click();
+    await page.locator('button[title^="تبديل المستخدم"]').click();
     await page.getByPlaceholder('بحث بالاسم أو المسمى').fill(name);
     await page.locator('button', { hasText: name }).last().click();
     await page.waitForTimeout(150);
@@ -90,7 +90,7 @@ let fail = 0;
   await as('عبدالرحمن الحربي'); await go(G);
   await cmd('إسناد لمعقّب', { select: { 'المعقّب': 'محمد الشهري' } });
   await see('رقم الطلب', 'transaction drawer open'); await see('معقّب', 'expeditor shown');
-  await go('/dashboard'); await page.getByRole('button', { name: '+أسبوع' }).click(); await page.waitForTimeout(300);
+  await go('/dashboard'); await page.getByRole('button', { name: 'تاريخ النموذج' }).click(); await page.getByRole('button', { name: '+ أسبوع' }).click(); await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   await go('/work'); await see('تأخر التحديث الأسبوعي', 'transactions manager sees the missing weekly update');
   await as('محمد الشهري'); await go(G);
   await cmd('تحديث المتابعة الأسبوعي', { fill: { 'النتيجة': 'قيد المراجعة الفنية', 'حالة المنصة': 'تحت الدراسة' } });

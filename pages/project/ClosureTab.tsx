@@ -1,10 +1,10 @@
 import React from 'react';
-import { CheckCircle2, Circle, CircleDot, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Circle, CircleDot, ClipboardCheck, Coins, RotateCcw, Workflow } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { COLLECTION, DELIVERABLE_STATES, ENTITLEMENT, PROJECT_STATES } from '../../domain/labels';
 import { allows } from '../../domain/permissions';
 import type { ApprovalChain, Project } from '../../domain/types';
-import { Card, cn, CommandButton, DateText, Money, Notice, Pill, Rule, StatePill, Table, Td } from '../../components/ui';
+import { Card, cn, CommandButton, DateText, Money, Notice, Pill, StatePill, Table, Td } from '../../components/ui';
 import { STEP_NAMES } from '../../components/projects/shared';
 import type { TabProps } from './ProjectPage';
 
@@ -23,16 +23,20 @@ export const ClosureTab: React.FC<TabProps> = ({ project: p }) => {
   const finance = allows(me, 'project.review_settlement');
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title={<span className="flex items-center gap-2">الاكتمال الفني <Rule>AD-05</Rule></span>} subtitle="كل مخرجات النطاق معتمدة أو مستبعدة بموافقة — قد تبقى مستحقات">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatePill s={PROJECT_STATES[p.status]} />
-            <span className="text-sm text-ink-2">{done} معتمد · {excluded} مستبعد · {open.length} مفتوح من {ds.length}</span>
-          </div>
-          {p.technicallyCompleteAt && <p className="mt-2 text-xs text-muted">اكتمل فنيًا في <DateText iso={p.technicallyCompleteAt} /></p>}
+    <div className="space-y-6">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <Card title="الاكتمال الفني" icon={<ClipboardCheck size={18} />} actions={<StatePill s={PROJECT_STATES[p.status]} />}>
+          <dl className="grid grid-cols-3 gap-4">
+            {[['معتمد', done], ['مستبعد', excluded], ['مفتوح', open.length]].map(([l, v], i) => (
+              <div key={l as string}>
+                <dt className="text-xs text-muted">{l}</dt>
+                <dd className="text-xl font-bold tabular text-ink">{v}{i === 0 && <span className="text-sm font-normal text-muted"> من {ds.length}</span>}</dd>
+              </div>
+            ))}
+          </dl>
+          {p.technicallyCompleteAt && <p className="mt-3 text-xs text-muted">اكتمل فنيًا في <DateText iso={p.technicallyCompleteAt} /></p>}
           {open.length > 0 && (
-            <ul className="mt-3 space-y-1">
+            <ul className="mt-4 space-y-2 border-t border-line pt-4">
               {open.map((d) => (
                 <li key={d.id} className="flex items-center justify-between gap-2 text-sm">
                   <span className="truncate">{d.title}</span>
@@ -41,32 +45,35 @@ export const ClosureTab: React.FC<TabProps> = ({ project: p }) => {
               ))}
             </ul>
           )}
-          {p.status === 'in_progress' && open.length > 0 && <p className="mt-2 text-xs text-muted">يصبح المشروع «مكتمل فنيًا» آليًا عند اعتماد آخر مخرج أو استبعاده بموافقة.</p>}
-          <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
+          {p.status === 'in_progress' && open.length > 0 && <p className="mt-3 text-xs text-muted">يكتمل فنيًا تلقائيًا عند اعتماد آخر مخرج أو استبعاده.</p>}
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4 empty:hidden">
             {canRequest && p.status === 'technically_complete' && (
               <CommandButton command="closure.request" base={{ projectId: p.id }} label="طلب الإغلاق" success="رُفع طلب الإغلاق — مديرو الأقسام بالتوازي"
                 fields={[{ name: 'reason', label: 'ملخص الإغلاق', type: 'textarea', required: true, initial: 'سُلمت كل المخرجات واعتُمدت' }]} />
             )}
             {canRequest && ['preparing', 'in_progress', 'suspended'].includes(p.status) && (
               <CommandButton command="cancellation.request" base={{ projectId: p.id }} label="طلب إلغاء المشروع" variant="danger" success="رُفع طلب الإلغاء لمدير الأقسام"
-                intro="الإلغاء لا يُسقط الحقوق المالية: المستحقات ومهام التحصيل تبقى مفتوحة (AD-07، AC-14)."
+                intro="الإلغاء لا يُسقط الحقوق المالية: المستحقات ومهام التحصيل تبقى مفتوحة."
                 fields={[{ name: 'reason', label: 'أسباب الإلغاء', type: 'textarea', required: true }]} />
             )}
           </div>
         </Card>
 
-        <Card title={<span className="flex items-center gap-2">الإغلاق المالي (مستقل) <Rule>A4</Rule> <Rule>F14</Rule></span>} subtitle="الإغلاق التشغيلي لا يمنع المطالبة والتحصيل؛ التسوية بعد كل المستحقات والتكاليف"
+        <Card title="الإغلاق المالي" icon={<Coins size={18} />} subtitle="مستقل عن الإغلاق التشغيلي"
           actions={finance && ['operationally_closed', 'cancelled'].includes(p.status) && p.financialState === 'open' && (
             <CommandButton command="project.settle" base={{ projectId: p.id }} label="الإغلاق المالي" success="سُوّي المشروع ماليًا"
               fields={[{ name: 'note', label: 'ملخص التسوية', type: 'textarea', required: true }]} />
           )}
         >
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <dl className="flex flex-wrap gap-x-8 gap-y-3">
+              <div><dt className="text-xs text-muted">مستحق غير محصل</dt><dd className="text-lg font-bold tabular text-ink"><Money v={receivable.reduce((s, x) => s + x.amount - x.collected, 0)} /></dd></div>
+              <div><dt className="text-xs text-muted">لم تستحق بعد</dt><dd className="text-lg font-bold tabular text-ink"><Money v={notDue.reduce((s, x) => s + x.amount, 0)} /></dd></div>
+            </dl>
             <Pill tone={p.financialState === 'settled' ? 'success' : 'waiting'}>{p.financialState === 'settled' ? 'مسوّى ماليًا' : 'مفتوح ماليًا'}</Pill>
-            <span className="text-sm text-ink-2">مستحق غير محصل: <Money v={receivable.reduce((s, x) => s + x.amount - x.collected, 0)} /> · لم تستحق بعد: <Money v={notDue.reduce((s, x) => s + x.amount, 0)} /></span>
           </div>
           {receivable.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-4 overflow-hidden rounded-lg border border-line">
               <Table head={['الدفعة', 'الاستحقاق', 'التحصيل', 'المتبقي']}>
                 {receivable.map((x) => (
                   <tr key={x.id}>
@@ -80,10 +87,10 @@ export const ClosureTab: React.FC<TabProps> = ({ project: p }) => {
             </div>
           )}
           {unpaidCosts.length > 0 && (
-            <p className="mt-2 text-xs text-st-waiting">تكاليف معتمدة غير مصروفة بالكامل: {unpaidCosts.map((c) => `${c.service} (${(c.amount - c.paid).toLocaleString('en')} ر.س)`).join('، ')}</p>
+            <p className="mt-3 text-xs text-st-waiting">تكاليف معتمدة غير مصروفة بالكامل: {unpaidCosts.map((c) => `${c.service} (${(c.amount - c.paid).toLocaleString('en')} ر.س)`).join('، ')}</p>
           )}
           {['closure_review', 'operationally_closed', 'cancellation_review', 'cancelled'].includes(p.status) && receivable.length > 0 && (
-            <Notice tone="brand" title="التحصيل مستمر"><span className="text-xs">المالية تسجل التحصيل بعد الإغلاق أو الإلغاء، ومسؤول الفرصة يواصل المتابعة (AC-13، AC-14).</span></Notice>
+            <div className="mt-4"><Notice tone="progress" title="التحصيل مستمر">المالية تسجل التحصيل بعد الإغلاق، ومسؤول الفرصة يواصل المتابعة.</Notice></div>
           )}
         </Card>
       </div>
@@ -91,10 +98,12 @@ export const ClosureTab: React.FC<TabProps> = ({ project: p }) => {
       {p.closure && <ChainCard p={p} chain={p.closure} />}
       {p.cancellation && <ChainCard p={p} chain={p.cancellation} />}
       {!p.closure && !p.cancellation && (
-        <Notice tone="muted">
-          سلسلة الإغلاق: مديرو الأقسام بالتوازي ← مدير الأقسام (الاعتماد الفني النهائي) ← المالية (مراجعة التسوية) ← الرئيس التنفيذي ← مغلق تشغيليًا.
-          سلسلة الإلغاء: مدير الأقسام ← المالية (المستحقات والتكاليف والالتزامات) ← الرئيس التنفيذي ← ملغى. <Rule>AD-06</Rule> <Rule>AD-07</Rule> <Rule>D16</Rule>
-        </Notice>
+        <Card title="مراحل الاعتماد" icon={<Workflow size={18} />}>
+          <dl className="space-y-3 text-sm">
+            <div><dt className="text-xs text-muted">الإغلاق</dt><dd className="mt-0.5 text-ink">مديرو الأقسام (بالتوازي) ← مدير الأقسام ← المالية ← الرئيس التنفيذي</dd></div>
+            <div><dt className="text-xs text-muted">الإلغاء</dt><dd className="mt-0.5 text-ink">مدير الأقسام ← المالية ← الرئيس التنفيذي</dd></div>
+          </dl>
+        </Card>
       )}
     </div>
   );
@@ -110,7 +119,8 @@ function ChainCard({ p, chain }: { p: Project; chain: ApprovalChain }) {
     : chain.status === 'returned' ? { label: 'أُعيد', tone: 'waiting' as const } : { label: 'قيد الاعتماد', tone: 'progress' as const };
   return (
     <Card
-      title={<span className="flex flex-wrap items-center gap-2">{title} <Pill tone={st.tone}>{st.label}</Pill> <Rule>{chain.kind === 'closure' ? 'AD-06' : 'AD-07'}</Rule></span>}
+      icon={<Workflow size={18} />}
+      title={<span className="flex flex-wrap items-center gap-2">{title} <Pill tone={st.tone}>{st.label}</Pill></span>}
       subtitle={<>طلبه {userName(chain.requestedBy)} · <DateText iso={chain.requestedAt} /> · {chain.reason}</>}
       actions={myTurn && (
         <>
@@ -131,7 +141,7 @@ function ChainCard({ p, chain }: { p: Project; chain: ApprovalChain }) {
               {i < chain.steps.length - 1 && <span className={cn('absolute start-[8px] top-6 bottom-0 w-px', s.status === 'approved' ? 'bg-st-success/40' : 'bg-line')} />}
               <span className="relative z-10 mt-0.5 bg-card">{icon}</span>
               <div className="min-w-0 grow">
-                <p className={cn('text-sm font-medium', s.status === 'pending' ? 'text-brand-700' : 'text-ink')}>{STEP_NAMES[s.key]}</p>
+                <p className={cn('text-sm', s.status === 'pending' ? 'font-semibold text-ink' : s.status === 'waiting' ? 'text-muted' : 'font-medium text-ink')}>{STEP_NAMES[s.key]}</p>
                 <ul className="mt-1 space-y-1">
                   {s.approverIds.map((id) => {
                     const d = s.decisions.find((x) => x.userId === id);

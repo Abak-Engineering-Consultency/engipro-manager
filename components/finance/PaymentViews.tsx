@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Children, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLookup, useStore } from '../../app/store';
 import { fmtDate } from '../../domain/calendar';
@@ -7,11 +7,11 @@ import { COLLECTION, ENTITLEMENT, INVOICING, PAYMENT_CONDITIONS, TIME_BASED } fr
 import { allows } from '../../domain/permissions';
 import { oppOwner } from '../../domain/selectors';
 import type { AppState, PaymentItem, Project } from '../../domain/types';
-import { Button, CommandButton, DateText, Drawer, Fact, Id, Modal, Money, Notice, Pill, Rule, Select, StatePill, Table, Td, Timeline, cn } from '../ui';
+import { Button, CommandButton, DateText, Drawer, Fact, Modal, Money, Notice, Pill, Select, StatePill, Table, Td, Timeline, cn } from '../ui';
 
 const KIND_LABELS: Record<PaymentItem['link']['kind'], string> = { deliverables: 'مخرجات', items: 'بنود', phase: 'مرحلة', none: 'بلا ربط (زمنية)' };
 
-/** What a payment is tied to, by name (PJ-07). */
+/** What a payment is tied to, by name. */
 export function linkSummary(s: AppState, p: Project, pay: PaymentItem): string {
   if (pay.visitIds?.length) return `زيارات: ${pay.visitIds.join('، ')}`;
   if (pay.link.kind === 'none') return TIME_BASED.includes(pay.condition) ? 'شرط زمني — بلا ربط بمخرج' : 'لم يُربط بعد';
@@ -58,13 +58,13 @@ export function MappingEditor({ project, onClose }: { project: Project; onClose:
     <Modal open wide onClose={onClose} title="ربط الدفعات بشروطها التعاقدية"
       footer={<><Button variant="secondary" onClick={onClose}>إلغاء</Button><Button onClick={submit}>إرسال للمالية للتحقق</Button></>}
     >
-      <Notice tone="progress">لا دفعات جديدة ولا تغيير قيم — يُربط كل بند من جدول العقد بمخرج أو مجموعة بنود أو مرحلة حسب شرطه. الدفعات الزمنية (مقدمة، شهرية، بتاريخ) لا تُربط بمخرج. <Rule>PJ-07</Rule></Notice>
-      <div className="mt-3 space-y-3">
+      <p className="text-sm text-muted">اربط كل دفعة بما يحقق شرطها. القيم لا تتغير، والدفعات الزمنية لا تُربط بمخرج.</p>
+      <div className="mt-4 space-y-3">
         {pays.map((p) => {
           const l = links[p.id];
           const kinds: PaymentItem['link']['kind'][] = TIME_BASED.includes(p.condition) ? ['none', 'phase'] : ['deliverables', 'items', 'phase'];
           return (
-            <div key={p.id} className="rounded-lg border border-line p-3">
+            <div key={p.id} className="rounded-lg border border-line p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-medium text-ink">{p.label}</p>
@@ -76,7 +76,7 @@ export function MappingEditor({ project, onClose }: { project: Project; onClose:
                 </Select>
               </div>
               {l.kind !== 'none' && (
-                <div className="mt-2 grid max-h-40 gap-1 overflow-y-auto rounded border border-line p-2 sm:grid-cols-2">
+                <div className="mt-3 grid max-h-40 gap-1.5 overflow-y-auto rounded-lg bg-page p-3 sm:grid-cols-2">
                   {options(l.kind).map((o) => (
                     <label key={o.value} className="flex items-center gap-2 text-sm">
                       <input type="checkbox" className="accent-brand-600" checked={l.ids.includes(o.value)}
@@ -91,7 +91,7 @@ export function MappingEditor({ project, onClose }: { project: Project; onClose:
           );
         })}
       </div>
-      {error && <p className="mt-3 rounded-md bg-st-danger-bg px-3 py-2 text-sm text-st-danger">{error}</p>}
+      {error && <p role="alert" className="mt-4 rounded-lg bg-st-danger-bg px-4 py-3 text-sm text-st-danger">{error}</p>}
     </Modal>
   );
 }
@@ -115,7 +115,7 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
     <>
       {isFinanceVerify && pay.evidenceCheck === 'pending' && pay.invoicing === 'not_invoiced' && (
         <CommandButton command="payment.verify_evidence" base={base} label="التحقق من إثبات الاستحقاق"
-          intro="قبل الفاتورة: الاعتراض يعيد البند للمراجعة. بعد الفاتورة أو التحصيل تكون المعالجة محاسبية لا إعادة آلية (DL-10)."
+          intro="قبل الفاتورة: الاعتراض يعيد البند للمراجعة. بعد الفاتورة أو التحصيل تكون المعالجة محاسبية لا إعادة آلية."
           fields={[
             { name: 'decision', label: 'القرار', type: 'select', options: [{ value: 'accepted', label: 'قبول الإثبات' }, { value: 'objected', label: 'اعتراض قبل الفاتورة' }] },
             { name: 'note', label: 'ملاحظة', type: 'textarea' },
@@ -126,17 +126,17 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
       )}
       {isFinance && pay.entitlement !== 'not_due' && pay.invoicing === 'not_invoiced' && ['accepted', 'none'].includes(pay.evidenceCheck) && (
         <CommandButton command="payment.issue_claim" base={base} label="إصدار المطالبة / الفاتورة"
-          intro="تُنشأ مهمة متابعة تحصيل واحدة لمسؤول الفرصة (DL-12)."
+          intro="تُنشأ مهمة متابعة تحصيل واحدة لمسؤول الفرصة."
           fields={[{ name: 'invoiceRef', label: 'مرجع الفاتورة في النظام المحاسبي', type: 'text', required: true }]} success="صدرت المطالبة" />
       )}
       {isFinance && (pay.invoicing === 'invoiced' || pay.condition === 'advance') && pay.collection !== 'fully_collected' && (
         <CommandButton command="payment.record_collection" base={base} label="تسجيل تحصيل (المالية فقط)"
-          intro={['operationally_closed', 'cancelled'].includes(project.status) ? 'المشروع مغلق أو ملغى — التحصيل مستمر والمستحقات لا تسقط (AC-13/AC-14).' : 'المالية وحدها تؤكد التحصيل بعد مطابقة التحويل والسند.'}
+          intro={['operationally_closed', 'cancelled'].includes(project.status) ? 'المشروع مغلق أو ملغى — التحصيل مستمر والمستحقات لا تسقط.' : 'المالية وحدها تؤكد التحصيل بعد مطابقة التحويل والسند.'}
           fields={[{ name: 'amount', label: 'المبلغ', type: 'number', initial: remaining }, { name: 'ref', label: 'رقم السند', type: 'text', required: true }]} success="سُجّل التحصيل" />
       )}
       {isOpp && openFollowUp && (
         <>
-          <CommandButton command="payment.log_follow_up" base={base} variant="secondary" label="تسجيل متابعة تحصيل" title="سجل التواصل مع العميل (D10)"
+          <CommandButton command="payment.log_follow_up" base={base} variant="secondary" label="تسجيل متابعة تحصيل" title="سجل التواصل مع العميل"
             fields={[
               { name: 'response', label: 'رد العميل', type: 'textarea', required: true },
               { name: 'promise', label: 'وعد السداد', type: 'text' },
@@ -145,7 +145,7 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
             ]} success="سُجّلت المتابعة" />
           {!pay.transferClaim && (
             <CommandButton command="payment.claim_transfer" base={base} variant="secondary" label="العميل أفاد بالتحويل"
-              intro="يُحال للمالية مع الإثبات — لا تُعد الدفعة محصلة بمجرد إثبات التحويل (A5)."
+              intro="يُحال للمالية مع الإثبات — لا تُعد الدفعة محصلة بمجرد إثبات التحويل."
               fields={[{ name: 'proof', label: 'إثبات التحويل', type: 'text', required: true }]} success="أُحيل للمالية" />
           )}
           {!pay.escalatedAt && (
@@ -162,18 +162,17 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
       onClose={onClose}
       title={
         <div>
-          <Id className="text-sm">{pay.id}</Id>
-          <h2 className="mt-1 text-base font-semibold text-ink">{pay.label}</h2>
-          <div className="mt-1"><ThreeDims pay={pay} /></div>
+          <h2 className="text-lg font-semibold text-ink">{pay.label}</h2>
+          <p className="text-xs text-muted"><span className="ltr-iso">{pay.id}</span> · {PAYMENT_CONDITIONS[pay.condition]}</p>
+          <div className="mt-2"><ThreeDims pay={pay} /></div>
         </div>
       }
-      actions={actions}
+      actions={Children.toArray(actions.props.children).length ? actions : undefined}
     >
       <div className="space-y-5">
-        <Notice tone="muted">الاستحقاق ≠ الفاتورة ≠ التحصيل: المشروع يغيّر الاستحقاق فقط بشرط موثّق، والمالية وحدها تصدر المطالبة وتؤكد التحصيل. <Rule>A5</Rule> <Rule>F9</Rule></Notice>
         {pay.entitlement === 'overdue' && (
           <Notice tone="danger" title="متأخرة بعد انتهاء المهلة">
-            منذ {fmtDate(pay.overdueAt)} · {pay.escalatedAt ? `صُعّدت لمدير المبيعات ${pay.escalation === 'early' ? '(تصعيد مبكر)' : '(آليًا)'} في ${fmtDate(pay.escalatedAt)}` : `التصعيد الآلي بعد ${state.settings.collectionEscalationDays} يومًا من التأخر`} <Rule>DL-13</Rule>
+            منذ {fmtDate(pay.overdueAt)} · {pay.escalatedAt ? `صُعّدت لمدير المبيعات ${pay.escalation === 'early' ? '(تصعيد مبكر)' : '(آليًا)'} في ${fmtDate(pay.escalatedAt)}` : `التصعيد الآلي بعد ${state.settings.collectionEscalationDays} يومًا من التأخر`}
           </Notice>
         )}
         {pay.evidenceCheck === 'objected' && <Notice tone="danger" title="اعترضت المالية على الإثبات قبل الفاتورة">عاد البند للمراجعة — على مدير المشروع توضيح الإثبات.</Notice>}
@@ -181,32 +180,32 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
           <Notice tone="waiting" title="العميل أفاد بالتحويل — بانتظار مطابقة المالية">{pay.transferClaim.proof} · {userName(pay.transferClaim.by)} · {fmtDate(pay.transferClaim.at)}</Notice>
         )}
 
-        <dl className="grid grid-cols-2 gap-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Fact label="المبلغ"><Money v={pay.amount} /></Fact>
           <Fact label="المحصل / المتبقي"><Money v={pay.collected} /> / <Money v={remaining} className={remaining > 0 && pay.entitlement !== 'not_due' ? 'text-st-waiting' : ''} /></Fact>
           <Fact label="الشرط التعاقدي">{PAYMENT_CONDITIONS[pay.condition]}{pay.scheduledDate && <> — <DateText iso={pay.scheduledDate} /></>}</Fact>
           <Fact label="الربط">{linkSummary(state, project, pay)}</Fact>
           <Fact label="تاريخ الاستحقاق"><DateText iso={pay.dueAt} /></Fact>
-          <Fact label="المهلة حتى (grace_until)"><DateText iso={pay.graceUntil} /> <span className="text-xs text-muted">({pay.graceDays} يوم)</span></Fact>
+          <Fact label="المهلة حتى"><DateText iso={pay.graceUntil} /> <span className="text-xs font-normal text-muted">({pay.graceDays} يوم)</span></Fact>
           <Fact label="الفاتورة">{pay.invoiceRef ? <><span className="ltr-iso">{pay.invoiceRef}</span> · <DateText iso={pay.invoicedAt} /></> : '—'}</Fact>
           <Fact label="مهمة متابعة التحصيل">{task ? <Link className="text-brand-700 hover:underline" to={`/work?task=${task.id}`}>{task.id} — {userName(task.ownerId)} ({task.status === 'completed' ? 'مغلقة' : 'مفتوحة'})</Link> : '—'}</Fact>
         </dl>
 
         {blocks.length > 0 && (
-          <section className="rounded-md border border-line p-3 text-sm">
-            <p className="font-semibold text-ink">العقد يشترط سدادها قبل تسليم: <Rule>DL-04</Rule></p>
+          <section className="rounded-lg bg-page px-4 py-3 text-sm">
+            <p className="mb-1 font-semibold text-ink">يشترط العقد سدادها قبل تسليم:</p>
             {blocks.map((d) => <Link key={d.id} className="me-2 text-brand-700 hover:underline" to={`/projects/${project.id}?tab=deliverables&d=${d.id}`}>{d.title}</Link>)}
           </section>
         )}
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">إثبات الاستحقاق {pay.evidenceCheck === 'pending' ? <Pill tone="waiting">بانتظار تحقق المالية</Pill> : pay.evidenceCheck === 'accepted' ? <Pill tone="success">قبلته المالية</Pill> : pay.evidenceCheck === 'objected' ? <Pill tone="danger">اعتراض</Pill> : null}</h3>
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">إثبات الاستحقاق {pay.evidenceCheck === 'pending' ? <Pill tone="waiting">بانتظار تحقق المالية</Pill> : pay.evidenceCheck === 'accepted' ? <Pill tone="success">قبلته المالية</Pill> : pay.evidenceCheck === 'objected' ? <Pill tone="danger">اعتراض</Pill> : null}</h3>
           {!pay.evidence.length ? <p className="text-sm text-muted">لم يتحقق الشرط بعد.</p> : (
-            <ul className="space-y-1 text-sm">
+            <ul className="divide-y divide-line rounded-lg border border-line text-sm">
               {pay.evidence.map((e, i) => {
                 const d = state.deliverables.find((x) => x.id === e.deliverableId);
                 return (
-                  <li key={i} className="rounded border border-line px-2 py-1">
+                  <li key={i} className="px-3 py-2">
                     <span className="font-medium">{e.kind}</span>
                     {d && <> — <Link className="text-brand-700 hover:underline" to={`/projects/${project.id}?tab=deliverables&d=${d.id}`}>{d.title}</Link> <span className="ltr-iso text-xs">{revLabel(e.rev)}</span></>}
                     <span className="text-xs text-muted"> · <DateText iso={e.at} /> {e.note}</span>
@@ -218,7 +217,7 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">سندات التحصيل (المالية)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-ink">سندات التحصيل</h3>
           {!pay.receipts.length ? <p className="text-sm text-muted">لا تحصيل بعد.</p> : (
             <Table head={['المبلغ', 'السند', 'التاريخ', 'سجلها']}>
               {pay.receipts.map((r, i) => (
@@ -229,7 +228,7 @@ export function PaymentDrawer({ project, id, onClose }: { project: Project; id?:
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">متابعة التحصيل — سجل التواصل <Rule>DL-12</Rule></h3>
+          <h3 className="mb-2 text-sm font-semibold text-ink">متابعة التحصيل</h3>
           <Timeline items={pay.followUps.slice().reverse().map((f) => ({
             at: f.at, by: userName(f.by), title: f.response,
             note: <>{f.promise && <>وعد: {f.promise} · </>}{f.expectedDate && <>متوقع {fmtDate(f.expectedDate)} · </>}{f.nextFollowUp && <>المتابعة التالية {fmtDate(f.nextFollowUp)}</>}</>,
