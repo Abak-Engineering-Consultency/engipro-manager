@@ -7,7 +7,7 @@ import { DEPARTMENTS, deptName } from '../../domain/catalog';
 import { derivedActions } from '../../domain/derived';
 import { ACTIVATION_STATES, CAPACITY_NAMES, DELIVERABLE_STATES, GOV_STATES, PROJECT_STATES, TASK_STATES } from '../../domain/labels';
 import { allows, hasRole, inDept } from '../../domain/permissions';
-import { projectBar } from '../../domain/selectors';
+import { mayApprove, projectBar, seesProjectMoney } from '../../domain/selectors';
 import type { DeliverableState, MemberCapacity, ProjectState } from '../../domain/types';
 import { Card, cn, CommandButton, DateText, Empty, Money, Notice, Pill, PersonChip, Progress, StatePill, userOptions } from '../../components/ui';
 import { CREATED_FROM, isLate } from '../../components/projects/shared';
@@ -28,6 +28,8 @@ export const OverviewTab: React.FC<TabProps> = ({ project: p, access }) => {
   const myTasks = state.tasks.filter((t) => t.link?.projectId === p.id && t.ownerId === me.id && !['completed', 'cancelled'].includes(t.status));
   const itemDepts = [...new Set(p.scopeItems.map((i) => i.deptCode))];
   const isDirector = allows(me, 'project.assign_manager');
+  const seesMoney = seesProjectMoney(state, me, p);
+  const decidesPm = !!p.pmNomination && mayApprove(state, me, 'project.assign_manager', [p.pmNomination.nominatedBy, p.pmNomination.nomineeId]);
   const isLeadManager = hasRole(me, 'dept_manager') && inDept(me, p.leadDept);
   const members = groupBy(p.members, (m) => m.capacity);
   const bar = projectBar(state, p);
@@ -132,7 +134,7 @@ export const OverviewTab: React.FC<TabProps> = ({ project: p, access }) => {
                   fields={[{ name: 'nomineeId', label: 'المرشح', type: 'select', options: userOptions(state.users, (u) => inDept(u, p.leadDept) && hasRole(u, 'engineer', 'dept_manager')) }]}
                 />
               )}
-              {p.pmNomination?.status === 'pending' && isDirector && (
+              {p.pmNomination?.status === 'pending' && decidesPm && (
                 <div className="flex flex-wrap gap-2">
                   <CommandButton command="project.decide_pm" base={{ projectId: p.id, decision: 'approved' }} label="اعتماد مدير المشروع" size="md" success="اعتُمد مدير المشروع — الحالة: تجهيز، ومساحة الملفات فُتحت بعد ضبط الصلاحيات" />
                   <CommandButton command="project.decide_pm" base={{ projectId: p.id, decision: 'returned' }} label="إعادة الترشيح" variant="secondary" size="md" success="أُعيد الترشيح"
@@ -210,9 +212,11 @@ export const OverviewTab: React.FC<TabProps> = ({ project: p, access }) => {
           )) : <Row label="العقد">خارج النظام</Row>}
           {activations.map((a) => <Row key={a.id} label="التفعيل المالي"><StatePill s={ACTIVATION_STATES[a.status]} /></Row>)}
           {exc && <Row label="استثناء الرئيس التنفيذي">{exc.status === 'linked' ? <Pill tone="success">رُبط بالاعتماد المالي</Pill> : <Pill tone="danger">ساري حتى {fmtDate(exc.expiresAt)}</Pill>}</Row>}
-          <Row label="جدول الدفعات">
-            <Link to={`/projects/${p.id}?tab=payments`} className="text-brand-700 hover:underline">{payments.length} دفعة{payments.length > 0 && <> · <Money v={payments.reduce((s, x) => s + x.amount, 0)} /></>}</Link>
-          </Row>
+          {seesMoney && (
+            <Row label="جدول الدفعات">
+              <Link to={`/projects/${p.id}?tab=payments`} className="text-brand-700 hover:underline">{payments.length} دفعة{payments.length > 0 && <> · <Money v={payments.reduce((s, x) => s + x.amount, 0)} /></>}</Link>
+            </Row>
+          )}
         </dl>
       </Card>
 

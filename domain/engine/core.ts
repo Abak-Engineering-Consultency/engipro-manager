@@ -1,9 +1,9 @@
 import { allows, hasRole, inDept, isActive, PERMISSIONS, type ScopeContext } from '../permissions';
-import { exceptionScope } from '../selectors';
+import { approverIds, exceptionScope } from '../selectors';
 import type {
   AppState, CostRequest, Deliverable, DeptCode, GovTransaction, ISO, PaymentItem, Perm, Project, RecordLink, Task, User, UserId, Visit,
 } from '../types';
-import { addCalendarDays } from '../calendar';
+import { addCalendarDays, dateKey } from '../calendar';
 
 /** A rule of the process refused the command. The message is shown to the user as is. */
 export class ProcessError extends Error {}
@@ -55,9 +55,18 @@ export class Ctx {
     }
   }
 
-  /** Next number from the shared numbering, e.g. PRJ-2026-0007. */
+  /** F6: the decision belongs to a holder of `perm` who is not a party to the request (else the CEO). */
+  requireApprover(perm: Perm, parties: (UserId | undefined)[], scope: ScopeContext = {}) {
+    if (this.actorId === 'system') return;
+    this.check(!parties.includes(this.actorId), 'لا يعتمد أحد طلبه بنفسه — القرار لمعتمد آخر (F6)');
+    if (approverIds(this.s, perm, parties, scope).includes(this.actorId)) return;
+    this.require(perm, scope);
+    this.fail('ليس دورك في اعتماد هذا الطلب');
+  }
+
+  /** Next number from the shared numbering, e.g. PRJ-2026-0007; a yearly series restarts with the Riyadh year. */
   nextId(prefix: string, width = 4, yearly = true): string {
-    const key = yearly ? `${prefix}-2026` : prefix;
+    const key = yearly ? `${prefix}-${dateKey(this.now).slice(0, 4)}` : prefix;
     const n = (this.s.seq[key] ?? 0) + 1;
     this.s.seq[key] = n;
     return `${key}-${String(n).padStart(width, '0')}`;
@@ -172,6 +181,21 @@ export class Ctx {
   addMember(p: Project, userId: UserId, capacity: Project['members'][number]['capacity'], deptCode?: Project['leadDept']) {
     if (!p.members.some((m) => m.userId === userId && m.capacity === capacity)) {
       p.members.push({ userId, capacity, deptCode, since: this.now });
+    }
+  }
+
+  /**
+   * AC-15 / F16: dropping a capacity drops the access it gave, from the next request — in the ERP
+   * and, through the ACL sync, in the project space. Nothing else about the person changes.
+   */
+  dropMember(p: Project, userId: UserId | undefined, capacity: Project['members'][number]['capacity'], why: string) {
+    if (!userId || !p.members.some((m) => m.userId === userId && m.capacity === capacity)) return;
+    p.members = p.members.filter((m) => !(m.userId === userId && m.capacity === capacity));
+    const gone = !p.members.some((m) => m.userId === userId);
+    this.event('project.member_removed', { type: 'project', id: p.id }, `سُحبت صفة ${this.user(userId).name} في المشروع: ${why}${gone ? ' — لم يعد عضوًا' : ''}`, p.id);
+    if (gone && p.nextcloud.status === 'open') {
+      p.nextcloud.lastSyncAt = this.now;
+      this.event('nextcloud.acl_synced', { type: 'project', id: p.id }, `مُزامنة الصلاحيات: سُحب وصول ${this.user(userId).name} إلى مساحة ${p.nextcloud.path}`, p.id);
     }
   }
 

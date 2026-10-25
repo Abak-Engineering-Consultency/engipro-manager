@@ -5,9 +5,12 @@ import { deptName } from '../../domain/catalog';
 import { CAPACITY_NAMES, roleLabel } from '../../domain/labels';
 import { allows, effectiveGrants, hasRole, inDept, PERMISSIONS, SCOPE_NAMES } from '../../domain/permissions';
 import { projectAccess } from '../../domain/selectors';
-import type { DeptCode } from '../../domain/types';
+import type { DeptCode, MemberCapacity } from '../../domain/types';
 import { Card, CommandButton, DateText, Notice, PersonChip, Pill, Table, Td, userOptions } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
+
+/** Capacities a department manager can end here; the others move with their record or their own flow. */
+const REMOVABLE: MemberCapacity[] = ['item_owner', 'reviewer', 'member', 'licensing_officer', 'expeditor'];
 
 const ORIGIN = { contract: 'العقد', paid_addition: 'إضافة مدفوعة', free_addition: 'إضافة دون مقابل', pre_system: 'قائم قبل النظام' } as const;
 
@@ -70,6 +73,11 @@ export const TeamTab: React.FC<TabProps> = ({ project: p }) => {
                 <span className="flex items-center gap-2">
                   <Pill tone={m.capacity === 'project_manager' ? 'brand' : 'muted'}>{CAPACITY_NAMES[m.capacity]}</Pill>
                   <span className="text-xs text-muted"><DateText iso={m.since} /></span>
+                  {canStaffState && REMOVABLE.includes(m.capacity) && p.pmId !== m.userId && allows(me, 'project.staff', { depts: [m.deptCode ?? user(m.userId)?.deptCode] }) && (
+                    <CommandButton command="project.remove_member" base={{ projectId: p.id, userId: m.userId }} label="إزالة" variant="ghost" success="أُزيل من المشروع وسُحب وصوله"
+                      intro="يُسحب وصوله إلى المشروع ومساحة ملفاته فورًا. من يحمل بنودًا أو معاملة مفتوحة تُسند أولًا لغيره."
+                      fields={[{ name: 'reason', label: 'السبب', type: 'textarea', required: true }]} />
+                  )}
                 </span>
               </li>
             ))}
@@ -80,7 +88,7 @@ export const TeamTab: React.FC<TabProps> = ({ project: p }) => {
           <dl className="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
             <div><dt className="text-xs text-muted">الدور</dt><dd className="mt-0.5 font-medium text-ink">{roleLabel(me)}</dd></div>
             <div><dt className="text-xs text-muted">صفتك في المشروع</dt><dd className="mt-0.5 font-medium text-ink">{myCaps.length ? myCaps.join('، ') : 'غير عضو'}</dd></div>
-            <div><dt className="text-xs text-muted">مستوى الاطلاع</dt><dd className="mt-0.5 font-medium text-ink">{access === 'full' ? 'كامل' : access === 'finance' ? 'المنطقة المالية' : access === 'client' ? 'مستندات العميل والمخرجات الجاهزة' : '—'}</dd></div>
+            <div><dt className="text-xs text-muted">مستوى الاطلاع</dt><dd className="mt-0.5 font-medium text-ink">{access === 'full' ? 'كامل' : access === 'finance' ? 'المنطقة المالية' : access === 'client' ? 'مستندات العميل والمخرجات الجاهزة' : access === 'gov' ? 'المعاملات الحكومية' : '—'}</dd></div>
             <div><dt className="text-xs text-muted">صلاحيات مباشرة</dt><dd className="mt-0.5 font-medium text-ink">{me.grants.length ? me.grants.map((g) => PERMISSIONS.find((x) => x.key === g.perm)?.label ?? g.perm).join('، ') : 'لا يوجد'}</dd></div>
           </dl>
           <details className="mt-4 border-t border-line pt-3">

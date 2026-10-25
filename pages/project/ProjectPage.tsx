@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowRight, CalendarDays, CheckSquare, Clock, ShieldAler
 import { useLookup, useStore } from '../../app/store';
 import { daysBetween, fmtDate } from '../../domain/calendar';
 import { PROJECT_STATES, SUSPENSION_TYPES } from '../../domain/labels';
-import { exceptionScope, projectAccess, projectProgress, startGate, type ProjectAccess } from '../../domain/selectors';
+import { exceptionScope, projectAccess, projectProgress, seesProjectMoney, startGate, type ProjectAccess } from '../../domain/selectors';
 import type { Project } from '../../domain/types';
 import { cn, Empty, Notice, Pill, Progress, StatePill, Tabs } from '../../components/ui';
 import { attentionReason, isLate, nextStep } from '../../components/projects/shared';
@@ -40,6 +40,7 @@ const TABS_BY_ACCESS: Record<Exclude<ProjectAccess, null>, TabId[]> = {
   full: ['overview', 'tasks', 'deliverables', 'plan', 'team', 'gov', 'visits', 'payments', 'costs', 'changes', 'documents', 'closure', 'activity'],
   finance: ['overview', 'payments', 'costs', 'closure', 'documents', 'activity'],
   client: ['overview', 'deliverables', 'payments', 'gov', 'visits', 'changes'],
+  gov: ['overview', 'gov', 'visits', 'documents'],
 };
 
 /** Tabs whose content is plain lists and tables: they sit on one white panel. Tabs made of cards sit on the page. */
@@ -68,7 +69,8 @@ export const ProjectPage: React.FC = () => {
     return <Empty icon={<ShieldAlert size={28} />} title="لا تملك صلاحية الاطلاع على هذا المشروع" hint="يظهر المشروع لأعضائه ولمديري أقسامه وللإدارة. بدّل المستخدم لتجربة دور آخر." />;
   }
 
-  const tabs = TABS_BY_ACCESS[access];
+  const money = seesProjectMoney(state, me, project);
+  const tabs = TABS_BY_ACCESS[access].filter((t) => money || !MONEY.includes(t));
   const tab = (tabs.includes(params.get('tab') as TabId) ? params.get('tab') : 'overview') as TabId;
   const setTab = (t: TabId) => {
     const next = new URLSearchParams(params);

@@ -1,5 +1,6 @@
 import { serviceByCode } from '../catalog';
 import type { Deliverable, GovTransaction, ISO, Project, UserId } from '../types';
+import { approverIds } from '../selectors';
 import { Ctx } from './core';
 import { checkPaymentConditions, checkTechnicalCompletion } from './delivery';
 
@@ -119,7 +120,7 @@ export const govCommands = {
         });
         g.fees.costRequestId = id;
         ctx.event('cost.submitted', { type: 'cost', id }, `طلب تكلفة لرسوم الجهة (${p.fees.amount}) — مدير الأقسام ثم المالية`, proj.id);
-        ctx.notify(ctx.directors(), { title: `طلب تكلفة رسوم: ${g.id}`, body: `${p.fees.amount} ر.س`, link: `/projects/${proj.id}?tab=costs`, type: 'cost_request.submitted' });
+        ctx.notify(approverIds(ctx.s, 'cost_request.approve', [ctx.actorId as UserId]), { title: `طلب تكلفة رسوم: ${g.id}`, body: `${p.fees.amount} ر.س`, link: `/projects/${proj.id}?tab=costs`, type: 'cost_request.submitted' });
       } else {
         ctx.notify([ctx.oppOwnerOf(proj)], { title: `رسوم الجهة على العميل: ${g.id}`, body: `${p.fees.amount} ر.س — بلّغ العميل`, link: glink(g), type: 'gov.fees_due' });
       }
@@ -150,6 +151,7 @@ export const govCommands = {
     g.expeditorId = p.expeditorId;
     const proj = ctx.project(g.projectId);
     ctx.addMember(proj, p.expeditorId, 'expeditor', exp.deptCode);
+    if (prev && prev !== p.expeditorId && !ctx.s.gov.some((x) => x.projectId === proj.id && x.expeditorId === prev)) ctx.dropMember(proj, prev, 'expeditor', `أُعيد إسناد ${g.id}`);
     ctx.event('gov.assigned', { type: 'gov', id: g.id }, `${prev ? 'أعيد إسناد' : 'أُسندت'} المتابعة إلى ${exp.name}`, proj.id);
     if (g.status === 'submitted') afterFees(ctx, g);
     else ctx.notify([p.expeditorId], { title: `أُسندت إليك متابعة ${g.id}`, body: g.authority, link: glink(g), type: 'gov.assigned' });

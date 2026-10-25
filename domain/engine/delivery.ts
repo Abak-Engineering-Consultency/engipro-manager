@@ -31,7 +31,8 @@ export function linkedDeliverables(ctx: Ctx, pay: PaymentItem): Deliverable[] {
  */
 export function checkPaymentConditions(ctx: Ctx, proj: Project) {
   if (proj.paymentMapping.status !== 'confirmed') return;
-  for (const pay of ctx.s.payments.filter((x) => x.projectId === proj.id && x.entitlement === 'not_due' && !TIME_BASED.includes(x.condition))) {
+  // An objected payment waits for the PM to resubmit the evidence (DL-10); it is not re-derived.
+  for (const pay of ctx.s.payments.filter((x) => x.projectId === proj.id && x.entitlement === 'not_due' && x.evidenceCheck !== 'objected' && !TIME_BASED.includes(x.condition))) {
     const linked = linkedDeliverables(ctx, pay).filter((d) => d.status !== 'excluded');
     if (!linked.length || !linked.every((d) => d.status === 'client_approved')) continue;
     pay.entitlement = 'due';

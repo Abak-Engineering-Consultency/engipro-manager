@@ -8,9 +8,9 @@ import { useStore } from '../app/store';
 import { derivedActions } from '../domain/derived';
 import { fmtDateTime, fmtLong } from '../domain/calendar';
 import { ROLE_NAMES, PROJECT_STATES } from '../domain/labels';
-import { hasRole, holds } from '../domain/permissions';
 import { projectAccess } from '../domain/selectors';
 import type { RoleId, User } from '../domain/types';
+import { SCREEN_ACCESS } from './ScreenGuard';
 import { Avatar, Button, cn, Modal, StatePill } from './ui';
 
 interface NavItem { to: string; label: string; icon: React.ReactNode; show: (u: User) => boolean; badge?: number }
@@ -31,10 +31,10 @@ export const Layout: React.FC = () => {
     { to: '/dashboard', label: 'لوحة التحكم', icon: <LayoutDashboard size={20} />, show: () => true },
     { to: '/work', label: 'مهامي', icon: <ListChecks size={20} />, show: () => true, badge: actions.length + myOpenTasks },
     { to: '/projects', label: 'المشاريع', icon: <FolderKanban size={20} />, show: () => true },
-    { to: '/intake', label: 'التفعيل والاستلام', icon: <Inbox size={20} />, show: (u) => hasRole(u, 'accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin') },
-    { to: '/gov', label: 'المعاملات الحكومية', icon: <Landmark size={20} />, show: (u) => holds(u, 'gov_transaction.prepare') || holds(u, 'gov_transaction.assign') || holds(u, 'gov_transaction.follow_up') || hasRole(u, 'main_dept_manager', 'ceo', 'dept_manager', 'engineer', 'sales_rep', 'admin') },
-    { to: '/visits', label: 'الزيارات', icon: <MapPin size={20} />, show: (u) => holds(u, 'visit.manage') },
-    { to: '/finance', label: 'المالية', icon: <Wallet size={20} />, show: (u) => hasRole(u, 'accountant', 'ceo') },
+    { to: '/intake', label: 'التفعيل والاستلام', icon: <Inbox size={20} />, show: SCREEN_ACCESS.intake },
+    { to: '/gov', label: 'المعاملات الحكومية', icon: <Landmark size={20} />, show: SCREEN_ACCESS.gov },
+    { to: '/visits', label: 'الزيارات', icon: <MapPin size={20} />, show: SCREEN_ACCESS.visits },
+    { to: '/finance', label: 'المالية', icon: <Wallet size={20} />, show: SCREEN_ACCESS.finance },
   ];
   const items = nav.filter((n) => n.show(me));
 

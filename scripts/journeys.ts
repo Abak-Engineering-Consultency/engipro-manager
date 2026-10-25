@@ -6,7 +6,8 @@
  */
 import { advanceClock, run, type CommandName, type Payload } from '../domain/engine';
 import { buildSeed } from '../domain/seed';
-import { startGate } from '../domain/selectors';
+import { derivedActions } from '../domain/derived';
+import { projectAccess, seesProjectMoney, startGate } from '../domain/selectors';
 import type { AppState } from '../domain/types';
 
 let s: AppState = buildSeed();
@@ -269,7 +270,7 @@ expect(s.notifications.some((n) => n.eventType === 'exception.weekly_alert' && n
 ok('u_fin', 'activation.approve', { activationId: 'ACT-2026-0032' });
 expect(s.projects.filter((p) => p.opportunityId === 'OPP-2026-0150').length === 1 && s.exceptions.find((e) => e.id === exc)!.status === 'linked', 'finance approval links to the same project');
 ok('u_mod_e', 'deliverable.upload', { deliverableId: dl(ep, 'ملف تقديم المخططات لمدن').id, files: ['modon.pdf'] });
-expect(true, 'F15 the scope limit lifts once finance approval is linked');
+expect(dl(ep, 'ملف تقديم المخططات لمدن').revisions.at(-1)?.files[0]?.name === 'modon.pdf', 'F15 the scope limit lifts once finance approval is linked');
 
 section('Task contributors and attachments (TK-03)');
 refused('u_dod', 'task.create', { title: 'x', ownerId: 'u_arc_m', dueDate: s.now, priority: 'low', reviewerId: 'u_arc_m' }, 'reviewer cannot be the owner');
@@ -308,6 +309,139 @@ ok('u_fin', 'chain.decide', { projectId: sup, kind: 'cancellation', decision: 'a
 ok('u_ceo', 'chain.decide', { projectId: sup, kind: 'cancellation', decision: 'approved', note: '' });
 expect(project(sup).status === 'cancelled' && s.payments.some((p) => p.projectId === sup && p.entitlement !== 'not_due' && p.collection !== 'fully_collected'), 'AC-14 cancelled; receivables stay open');
 expect(s.tasks.some((t) => t.source === 'collection' && t.link?.projectId === sup && t.status !== 'completed'), 'AC-14 collection tasks stay open');
+
+// ── Review findings (Abak_NEW_design docs/audit/projects-prototype/04): each starts from the seed ──
+const user = (id: string) => s.users.find((u) => u.id === id);
+const drive = (did: string, owner: string, reviewer: string, pm: string) => {
+  ok(owner, 'deliverable.upload', { deliverableId: did, files: [`${did}.pdf`] });
+  ok(owner, 'deliverable.submit', { deliverableId: did });
+  if (s.deliverables.find((d) => d.id === did)!.status === 'internal_review') ok(reviewer, 'deliverable.review', { deliverableId: did, decision: 'accepted', note: '' });
+  ok(pm, 'deliverable.deliver', { deliverableId: did, channel: 'بريد', recipient: 'العميل', reference: 'TR' });
+  ok(pm, 'deliverable.client_response', { deliverableId: did, kind: 'accepted', note: 'معتمد', proof: 'خطاب' });
+};
+/** A pre-system ARC project with two deliverables, started by the given PM. */
+const preSystemStarted = (pm: string) => {
+  const id = ok('u_dod', 'project.register_existing', {
+    title: 'مشروع قائم للتجربة', clientId: 'CNT-2026-0003', deptCode: 'ARC', pmId: pm, followUpOwnerId: 'u_sales',
+    currentPhase: 'التصميم', remainingWork: 'مخططان', documents: 'العقد', scopeLines: ['مخطط أ', 'مخطط ب'],
+  }) as string;
+  ok('u_fin', 'project.finance_review_existing', { projectId: id, note: 'لا أرصدة' });
+  ok('u_arc_m', 'project.assign_owner', { projectId: id, scopeItemId: project(id).scopeItems[0].id, ownerId: 'u_arc_e' });
+  ok('u_arc_m', 'project.assign_owner', { projectId: id, scopeItemId: project(id).scopeItems[1].id, ownerId: 'u_arc_e2' });
+  ok(pm, 'project.start', { projectId: id });
+  return id;
+};
+
+section('One project per opportunity, whatever the order (F1, AC-01)');
+s = buildSeed();
+const exc1 = ok('u_str_m', 'exception.request', { ...excBase, allowedLineIds: ['Q022-L2'] }) as string;
+ok('u_fin', 'activation.approve', { activationId: 'ACT-2026-0032' });
+expect(s.exceptions.find((e) => e.id === exc1)!.status === 'linked', 'finance approval closes the exception still waiting for the CEO');
+refused('u_ceo', 'exception.decide', { exceptionId: exc1, decision: 'granted', note: '' }, 'the CEO cannot grant it afterwards');
+expect(s.projects.filter((p) => p.opportunityId === 'OPP-2026-0150').length === 1, 'still one project for the opportunity');
+
+section('The approver is never the requester (F6)');
+s = buildSeed();
+const f6 = ok('u_fin', 'activation.approve', { activationId: 'ACT-2026-0031' }) as string;
+ok('u_dod', 'project.receive', { projectId: f6, leadDept: 'LIC', departments: ['ARC', 'STR', 'LIC'] });
+ok('u_dod', 'project.nominate_pm', { projectId: f6, nomineeId: 'u_dod' });
+refused('u_dod', 'project.decide_pm', { projectId: f6, decision: 'approved' }, 'the only Director cannot approve their own nomination');
+expect(derivedActions(s, user('u_ceo')).some((a) => a.key === `pm:${f6}`) && !derivedActions(s, user('u_dod')).some((a) => a.key === `pm:${f6}`), 'the decision goes up to the CEO');
+ok('u_ceo', 'project.decide_pm', { projectId: f6, decision: 'approved' });
+ok('u_dod', 'cost.create', { projectId: f6, service: 'مهندس مستقل', reason: 'نقص موارد', kind: 'unplanned', justification: 'غير مخطط', amount: 50_000, vendor: 'مكتب', quoteRef: 'Q', paymentTerms: 'مقدم', bearer: 'abak', payer: 'abak' });
+refused('u_dod', 'cost.decide', { costId: s.costs.at(-1)!.id, decision: 'approved', note: '' }, 'the PM cannot approve their own cost request');
+ok('u_ceo', 'cost.decide', { costId: s.costs.at(-1)!.id, decision: 'approved', note: '' });
+const free = ok('u_dod', 'change.request', { projectId: f6, kind: 'free_addition', title: 'لوحة إضافية', deptCode: 'ARC', reason: 'طلب العميل' }) as string;
+refused('u_dod', 'change.decide', { projectId: f6, requestId: free, decision: 'approved', note: '' }, 'nor their own free addition');
+refused('u_arc_m', 'change.decide', { projectId: f6, requestId: free, decision: 'approved', note: '' }, 'a department manager does not take the Director\'s place');
+ok('u_ceo', 'change.decide', { projectId: f6, requestId: free, decision: 'approved', note: '' });
+s = buildSeed();
+const t11 = ok('u_dod', 'task.create', { title: 'مراجعة الحسابات', ownerId: 'u_str_e', dueDate: s.now, priority: 'high', reviewerId: 'u_str_m' }) as string;
+refused('u_dod', 'task.reassign', { taskId: t11, toId: 'u_str_m', reason: 'ضغط عمل' }, 'a task is not reassigned to its reviewer');
+
+section('PM who is also the department manager (F6, AC-11)');
+s = buildSeed();
+const own = preSystemStarted('u_arc_m');
+const v11 = ok('u_arc_m', 'visit.schedule', { type: 'supervision', purpose: 'إشراف', expectedResult: 'تقرير', location: 'الموقع', contact: '-', link: { type: 'project', id: own, label: own, projectId: own }, ownerId: 'u_arc_m', participants: [], plannedStart: new Date(Date.parse(s.now) + 86_400_000).toISOString(), durationHours: 2, billing: 'included' }) as string;
+ok('u_arc_m', 'visit.confirm', { visitId: v11 });
+ok('u_arc_m', 'visit.complete', { visitId: v11, summary: 'تمت', reportFile: 'report.pdf' });
+const approver = s.visits.find((v) => v.id === v11)!.report!.approverId;
+expect(approver && approver !== 'u_arc_m', `AC-11 the report goes to someone other than the executor (${approver})`);
+ok(approver!, 'visit.decide_report', { visitId: v11, decision: 'approved', note: '' });
+for (const d of s.deliverables.filter((x) => x.projectId === own)) drive(d.id, d.scopeItemIds.includes(project(own).scopeItems[0].id) ? 'u_arc_e' : 'u_arc_e2', 'u_arc_m', 'u_arc_m');
+ok('u_arc_m', 'closure.request', { projectId: own, reason: 'سُلّمت المخرجات' });
+expect(project(own).closure!.steps.every((st) => !st.approverIds.includes('u_arc_m')), 'the requester approves no step of their own closure');
+
+section('Work finished while suspended still completes the project (AD-05)');
+s = buildSeed();
+const p5 = preSystemStarted('u_arc_e2');
+const [d5a, d5b] = s.deliverables.filter((d) => d.projectId === p5).map((d) => d.id);
+drive(d5a, 'u_arc_e', 'u_arc_m', 'u_arc_e2');
+ok('u_arc_e2', 'deliverable.upload', { deliverableId: d5b, files: ['b.pdf'] });
+ok('u_arc_e2', 'deliverable.submit', { deliverableId: d5b });
+ok('u_arc_m', 'deliverable.review', { deliverableId: d5b, decision: 'accepted', note: '' });
+ok('u_arc_e2', 'deliverable.deliver', { deliverableId: d5b, channel: 'بريد', recipient: 'العميل', reference: 'TR' });
+ok('u_arc_e2', 'project.suspend', { projectId: p5, type: 'client', reason: 'توقف العميل' });
+ok('u_arc_e2', 'deliverable.client_response', { deliverableId: d5b, kind: 'accepted', note: 'معتمد', proof: 'خطاب' });
+ok('u_arc_e2', 'project.resume', { projectId: p5 });
+expect(project(p5).status === 'technically_complete', 'resume finds every deliverable approved → technically complete');
+
+section('A finance objection holds until the PM resubmits (DL-10, AC-07)');
+s = buildSeed();
+const fuel2 = s.projects.find((p) => p.opportunityId === 'OPP-2026-0131')!.id;
+const fls2 = project(fuel2).scopeItems.find((i) => i.deptCode === 'FLS')!.id;
+for (const d of s.deliverables.filter((x) => x.projectId === fuel2 && x.scopeItemIds.includes(fls2))) drive(d.id, 'u_fls_e', 'u_fls_m', 'u_arc_e2');
+const safety = pay(fuel2, 'السلامة');
+ok('u_fin', 'payment.verify_evidence', { paymentId: safety.id, decision: 'objected', note: 'الإثبات بلا ختم' });
+const arc2 = s.deliverables.find((d) => d.projectId === fuel2 && d.status === 'internal_review')!.id;
+ok('u_arc_m', 'deliverable.review', { deliverableId: arc2, decision: 'accepted', note: '' });
+ok('u_arc_e2', 'deliverable.deliver', { deliverableId: arc2, channel: 'بريد', recipient: 'العميل', reference: 'TR' });
+ok('u_arc_e2', 'deliverable.client_response', { deliverableId: arc2, kind: 'accepted', note: 'معتمد', proof: 'خطاب' });
+expect(pay(fuel2, 'السلامة').entitlement === 'not_due' && pay(fuel2, 'السلامة').evidenceCheck === 'objected', 'another approval does not undo the objection');
+ok('u_arc_e2', 'payment.resubmit_evidence', { paymentId: safety.id, note: 'أُرفق الإثبات المختوم' });
+expect(pay(fuel2, 'السلامة').entitlement === 'due' && s.events.filter((e) => e.type === 'payment.entitlement_due' && e.entity.id === safety.id).length === 1, 'resubmission makes it due; the automatic entitlement fired once');
+
+section('Scope added to a running or suspended project opens for work (AD-01, GT-11, PJ-07)');
+s = buildSeed();
+const villa2 = s.projects.find((p) => p.opportunityId === 'OPP-2026-0118')!.id;
+for (const [svc, amount] of [['LIC-002', 20_000], ['MEP-003', 30_000]] as const) {
+  const req = ok('u_arc_e', 'change.request', { projectId: villa2, kind: 'paid_addition', reason: `إضافة ${svc}` }) as string;
+  ok('u_sales', 'paid_addition.accept_quotation', { projectId: villa2, requestId: req, serviceCode: svc, amount });
+}
+for (const a of s.activations.filter((x) => x.status === 'pending_finance' && x.opportunityId === 'OPP-2026-0118')) ok('u_fin', 'activation.approve', { activationId: a.id });
+const addGov = s.deliverables.find((d) => d.projectId === villa2 && d.origin === 'paid_addition' && d.requiresGov)!;
+expect(addGov.govTransactionId && s.gov.some((g) => g.id === addGov.govTransactionId), 'the addition\'s permit gets its government transaction');
+const mep2 = project(villa2).scopeItems.find((i) => i.origin === 'paid_addition' && i.deptCode === 'MEP')!.id;
+ok('u_mep_m', 'project.assign_owner', { projectId: villa2, scopeItemId: mep2, ownerId: 'u_mep_e' });
+for (const d of s.deliverables.filter((x) => x.projectId === villa2 && x.scopeItemIds.includes(mep2))) drive(d.id, 'u_mep_e', 'u_mep_m', 'u_arc_e');
+expect(s.payments.find((x) => x.projectId === villa2 && x.amount === 30_000)!.entitlement === 'due', 'the addition\'s payment falls due with its own deliverables');
+s = buildSeed();
+ok('u_arc_e2', 'project.suspend', { projectId: fuel2, type: 'client', reason: 'توقف' });
+const dep = ok('u_arc_e2', 'change.request', { projectId: fuel2, kind: 'add_department', deptCode: 'MEP', scope: 'الأحمال', reason: 'أحمال', deliverableTitles: ['جدول الأحمال'] }) as string;
+ok('u_dod', 'change.decide', { projectId: fuel2, requestId: dep, decision: 'approved', note: '' });
+ok('u_arc_e2', 'project.resume', { projectId: fuel2 });
+expect(s.deliverables.find((d) => d.projectId === fuel2 && d.deptCode === 'MEP')!.status === 'in_preparation', 'a department added while suspended starts on resume');
+
+section('Removing someone removes their access (AC-15, OD-14)');
+s = buildSeed();
+expect(projectAccess(s, user('u_arc_e'), project(fuel2)) === 'full', 'an item owner sees the project');
+expect(!seesProjectMoney(s, user('u_arc_e'), project(fuel2)) && seesProjectMoney(s, user('u_arc_e2'), project(fuel2)), 'an item owner does not see its money; the PM does');
+for (const i of project(fuel2).scopeItems.filter((x) => x.ownerId === 'u_arc_e')) ok('u_arc_m', 'project.assign_owner', { projectId: fuel2, scopeItemId: i.id, ownerId: 'u_arc_e2' });
+expect(projectAccess(s, user('u_arc_e'), project(fuel2)) === null, 'AC-15 reassigning their last item ends their access');
+const villa3 = s.projects.find((p) => p.opportunityId === 'OPP-2026-0118')!.id;
+const g3 = s.gov.find((x) => x.projectId === villa3)!;
+ok('u_lic_o', 'gov.request_client_docs', { govId: g3.id, note: '' });
+ok('u_sales', 'gov.client_docs_received', { govId: g3.id });
+ok('u_lic_o', 'gov.submit', { govId: g3.id, requestNo: 'B-1', feeInvoiceChecked: true });
+ok('u_gov_m', 'gov.assign_expeditor', { govId: g3.id, expeditorId: 'u_exp' });
+expect(projectAccess(s, user('u_exp'), project(villa3)) === 'gov' && !seesProjectMoney(s, user('u_exp'), project(villa3)), 'the expeditor sees the transaction, not the money');
+const pre2 = s.projects.find((p) => p.createdFrom === 'pre_system')!;
+expect(!derivedActions(s, user('u_arc_m')).some((a) => a.key === `nom:${pre2.id}`), 'no «nominate the PM» for a pre-system project that has one');
+
+section('Numbering follows the year');
+s = advanceClock(buildSeed(), 70);
+const y = ok('u_fin', 'activation.approve', { activationId: 'ACT-2026-0031' }) as string;
+expect(y.startsWith(`PRJ-${s.now.slice(0, 4)}-`), `a project created in ${s.now.slice(0, 4)} is numbered ${y}`);
 
 console.log(`\n${passes} passed, ${failures} failed`);
 if (failures) process.exit(1);

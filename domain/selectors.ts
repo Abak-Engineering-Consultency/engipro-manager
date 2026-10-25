@@ -1,6 +1,27 @@
 import { isAfter } from './calendar';
-import { allows, hasRole } from './permissions';
-import type { AppState, Deliverable, GovTransaction, Project, User } from './types';
+import { allows, hasRole, isActive, type ScopeContext } from './permissions';
+import type { AppState, ChangeRequest, Deliverable, GovTransaction, Perm, Project, User, UserId } from './types';
+
+/**
+ * F6: the approver is never the requester. The holders of the approving permission decide,
+ * except the parties to the request; when every holder is a party, the CEO decides.
+ */
+export function approverIds(s: AppState, perm: Perm, parties: (UserId | undefined)[], scope: ScopeContext = {}): UserId[] {
+  const involved = new Set(parties.filter(Boolean));
+  const holders = s.users.filter((u) => isActive(u) && !involved.has(u.id) && allows(u, perm, scope)).map((u) => u.id);
+  if (holders.length) return holders;
+  return s.users.filter((u) => isActive(u) && !involved.has(u.id) && hasRole(u, 'ceo')).map((u) => u.id);
+}
+
+/** Who decides a change (11-B8): the lead department manager for a single-department track, else the Director. */
+export function changeApproval(p: Project, cr: ChangeRequest): [Perm, UserId[], ScopeContext] {
+  return cr.kind === 'track' && !p.multiDept
+    ? ['project.staff', [cr.requestedBy], { depts: [p.leadDept] }]
+    : ['project.approve_change', [cr.requestedBy], {}];
+}
+
+export const mayApprove = (s: AppState, u: User | undefined, perm: Perm, parties: (UserId | undefined)[], scope?: ScopeContext) =>
+  !!u && approverIds(s, perm, parties, scope).includes(u.id);
 
 /** PJ-09: why the project cannot start yet. Empty = the gate is met. */
 export function startGate(s: AppState, p: Project): string[] {
@@ -80,21 +101,37 @@ export function projectBar(s: AppState, p: Project) {
   };
 }
 
-export type ProjectAccess = 'full' | 'finance' | 'client' | null;
+export type ProjectAccess = 'full' | 'finance' | 'client' | 'gov' | null;
+
+const capacitiesOf = (p: Project, u: User) => p.members.filter((m) => m.userId === u.id).map((m) => m.capacity);
+const WORK_CAPACITIES = ['project_manager', 'dept_manager', 'item_owner', 'reviewer', 'member'];
 
 /**
- * OD-14 / NX-03: who sees the project, and how much. Members and their departments see the
- * work; finance sees the financial area; sales see client documents and ready outputs.
+ * OD-14 / NX-03 / AC-15: who sees the project, and how much — read on every request, so a
+ * removed member or a deactivated account loses access at once.
+ * - Department or company scope of `project.read`, or a working capacity in the project: the work.
+ * - Finance: the financial area. Sales: client documents and ready outputs.
+ * - Licensing officer and expeditor: the project's transactions, not its work or money.
  */
 export function projectAccess(s: AppState, u: User | undefined, p: Project): ProjectAccess {
-  if (!u) return null;
-  const member = p.members.some((m) => m.userId === u.id && m.capacity !== 'opportunity_owner');
-  if (allows(u, 'project.read', { own: member, depts: p.departments.map((d) => d.deptCode) })) return 'full';
-  if (member) return 'full';
+  if (!u || u.deactivated) return null;
+  const caps = capacitiesOf(p, u);
+  if (allows(u, 'project.read', { own: caps.some((c) => WORK_CAPACITIES.includes(c)), depts: p.departments.map((d) => d.deptCode) })) return 'full';
   if (hasRole(u, 'accountant')) return 'finance';
-  if (p.members.some((m) => m.userId === u.id && m.capacity === 'opportunity_owner') || hasRole(u, 'sales_manager')) return 'client';
-  if (s.gov.some((g) => g.projectId === p.id && (g.licensingOfficerId === u.id || g.expeditorId === u.id))) return 'client';
+  if (caps.includes('opportunity_owner') || hasRole(u, 'sales_manager')) return 'client';
+  if (s.gov.some((g) => g.projectId === p.id && (g.licensingOfficerId === u.id || g.expeditorId === u.id))) return 'gov';
   return null;
+}
+
+/**
+ * `project.read` is the non-financial content (11-C). With full access, payments and costs are
+ * for whoever runs the project: the PM, its department managers, and department or company scope.
+ */
+export function seesProjectMoney(s: AppState, u: User | undefined, p: Project): boolean {
+  const access = projectAccess(s, u, p);
+  if (access === 'finance' || access === 'client') return true;
+  if (access !== 'full' || !u) return false;
+  return p.pmId === u.id || capacitiesOf(p, u).includes('dept_manager') || allows(u, 'project.read', { depts: p.departments.map((d) => d.deptCode) });
 }
 
 export const visibleProjects = (s: AppState, u: User | undefined) => s.projects.filter((p) => projectAccess(s, u, p));

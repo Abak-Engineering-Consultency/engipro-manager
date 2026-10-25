@@ -16,7 +16,7 @@
 npm install
 npm run dev          # http://localhost:3000
 npm run typecheck    # TypeScript strict
-npm run journeys     # يشغّل رحلات الاختبار الست ومعايير القبول على المحرّك (79 فحصًا)
+npm run journeys     # يشغّل الرحلات الست ومعايير القبول وفحوص نتائج المراجعة على المحرّك (102 فحص)
 npm run build
 ```
 

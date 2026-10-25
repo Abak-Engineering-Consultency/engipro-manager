@@ -3,7 +3,7 @@ import { serviceByCode, PLAN_TEMPLATES, deptName } from '../catalog';
 import { TIME_BASED } from '../labels';
 import { schedulePhases } from '../schedule';
 import { deptsOf, hasRole, inDept } from '../permissions';
-import { startGate } from '../selectors';
+import { approverIds, changeApproval, startGate } from '../selectors';
 import type {
   ApprovalChain, ApprovalDecision, ChainStep, ChangeRequest, DeptCode, Deliverable, ISO, PaymentItem, Phase,
   Project, ProjectState, Quotation, ScopeItem, Suspension, UserId,
@@ -41,7 +41,7 @@ function scopeAndDeliverables(ctx: Ctx, p: Project, q: Quotation, origin: ScopeI
         siteId: site?.id,
         technical: d.technical,
         requiresGov: !!d.gov,
-        status: p.status === 'in_progress' ? 'in_preparation' : 'not_started',
+        status: 'not_started',
         revisions: [],
         origin,
       });
@@ -71,6 +71,28 @@ function scopeAndDeliverables(ctx: Ctx, p: Project, q: Quotation, origin: ScopeI
       followUps: [],
     };
     ctx.s.payments.push(item);
+  }
+  // A paid addition joins a project whose payment links finance already confirmed: its own
+  // payments follow its own lines (PJ-07), so they fall due when those deliverables are approved.
+  if (origin === 'paid_addition' && p.paymentMapping.status === 'confirmed') {
+    const items = p.scopeItems.filter((i) => i.quotationId === q.id).map((i) => i.id);
+    for (const pay of ctx.s.payments.filter((x) => x.projectId === p.id && x.quotationId === q.id && !TIME_BASED.includes(x.condition))) {
+      pay.link = { kind: 'items', ids: items };
+    }
+    ctx.event('project.payment_links_addition', { type: 'project', id: p.id }, `رُبطت دفعات الإضافة ${q.id} ببنودها — الربط القائم لم يتغير`, p.id);
+  }
+  startDeliverables(ctx, p);
+}
+
+/**
+ * PJ-10: deliverables open for work once the project runs — on start, on resume, and when scope
+ * is added to a running project. A procedure deliverable opens through its government transaction.
+ */
+function startDeliverables(ctx: Ctx, proj: Project) {
+  if (proj.status !== 'in_progress') return;
+  for (const d of ctx.s.deliverables.filter((x) => x.projectId === proj.id && x.status === 'not_started')) {
+    if (d.requiresGov) createGovForDeliverable(ctx, proj, d);
+    else d.status = 'in_preparation';
   }
 }
 
@@ -157,6 +179,14 @@ export function ensureProjectForActivation(ctx: Ctx, activationId: string): Proj
   const p = createProject(ctx, act.opportunityId, q, 'activation', {});
   p.activationIds.push(act.id);
   act.projectId = p.id;
+  // F1: an exception still waiting for the CEO is no longer needed — closing it keeps it from creating a second project.
+  for (const exc of ctx.s.exceptions.filter((e) => e.opportunityId === act.opportunityId && e.status === 'requested')) {
+    exc.status = 'linked';
+    exc.projectId = p.id;
+    exc.decisionNote = 'لم يعد لازمًا: اعتمدت المالية التفعيل قبل قرار الاستثناء';
+    ctx.event('exception.superseded', { type: 'exception', id: exc.id }, `أُغلق طلب الاستثناء دون قرار — اعتماد المالية أنشأ المشروع ${p.id}`, p.id);
+    ctx.notify([exc.requestedBy, ...ctx.ceos()], { title: `لم يعد طلب الاستثناء ${exc.id} لازمًا`, body: `اعتمدت المالية التفعيل — المشروع ${p.id}`, link: link(p), type: 'exception.linked' });
+  }
   return p;
 }
 
@@ -226,6 +256,10 @@ export const projectCommands = {
     ctx.require('project.grant_exception');
     const exc = ctx.s.exceptions.find((e) => e.id === p.exceptionId) ?? ctx.fail('استثناء غير موجود');
     ctx.check(exc.status === 'requested', 'تم البت في هذا الاستثناء');
+    if (p.decision === 'granted') {
+      ctx.check(!ctx.s.projects.some((x) => x.opportunityId === exc.opportunityId), 'للفرصة مشروع قائم — لا استثناء ينشئ مشروعًا ثانيًا (F1)');
+      ctx.check(ctx.s.activations.some((a) => a.opportunityId === exc.opportunityId && a.status === 'pending_finance'), 'لم يعد طلب التفعيل بانتظار المالية');
+    }
     exc.decidedBy = ctx.actorId as UserId;
     exc.decidedAt = ctx.now;
     exc.decisionNote = p.note;
@@ -288,14 +322,14 @@ export const projectCommands = {
     ctx.check(hasRole(nominee, 'engineer', 'dept_manager') && !nominee.deactivated, 'المرشح يجب أن يكون مهندسًا أو مدير قسم');
     proj.pmNomination = { nomineeId: p.nomineeId, nominatedBy: ctx.actorId as UserId, at: ctx.now, status: 'pending' };
     ctx.event('project.manager_nominated', { type: 'project', id: proj.id }, `رُشّح ${nominee.name} مديرًا للمشروع`, proj.id);
-    ctx.notify(ctx.directors(), { title: `اعتمد مدير المشروع: ${proj.title}`, body: `المرشح: ${nominee.name}`, link: link(proj), type: 'project.manager_nominated' });
+    ctx.notify(approverIds(ctx.s, 'project.assign_manager', [ctx.actorId as UserId, p.nomineeId]), { title: `اعتمد مدير المشروع: ${proj.title}`, body: `المرشح: ${nominee.name}`, link: link(proj), type: 'project.manager_nominated' });
   },
 
   'project.decide_pm'(ctx: Ctx, p: { projectId: string; decision: 'approved' | 'returned'; note?: string }) {
-    ctx.require('project.assign_manager');
     const proj = ctx.project(p.projectId);
     const nom = proj.pmNomination;
     ctx.check(nom?.status === 'pending', 'لا يوجد ترشيح بانتظار الاعتماد');
+    ctx.requireApprover('project.assign_manager', [nom.nominatedBy, nom.nomineeId]);
     nom.status = p.decision;
     nom.note = p.note;
     if (p.decision === 'returned') {
@@ -325,12 +359,33 @@ export const projectCommands = {
     ctx.check(['preparing', 'in_progress', 'suspended'].includes(proj.status), 'لا يمكن تعيين مسؤولين في هذه الحالة');
     const owner = ctx.user(p.ownerId);
     ctx.check(inDept(owner, item.deptCode) && !owner.deactivated, 'مسؤول البند يجب أن يكون من نفس القسم');
+    const prev = item.ownerId;
     item.ownerId = p.ownerId;
     ctx.addMember(proj, p.ownerId, 'item_owner', item.deptCode);
+    if (prev && prev !== p.ownerId && !proj.scopeItems.some((i) => i.ownerId === prev)) ctx.dropMember(proj, prev, 'item_owner', `أُسند «${item.title}» إلى غيره`);
     const da = proj.departments.find((d) => d.deptCode === item.deptCode);
     if (da?.status === 'joining' && proj.scopeItems.filter((i) => i.deptCode === item.deptCode).every((i) => i.ownerId)) da.status = 'active';
     ctx.event('project.owner_assigned', { type: 'scope_item', id: item.id }, `عُيّن ${owner.name} مسؤولًا عن «${item.title}»`, proj.id);
     ctx.notify([p.ownerId, proj.pmId], { title: `أنت مسؤول بند في ${proj.id}`, body: item.title, link: link(proj), type: 'project.owner_assigned' });
+  },
+
+  /** AC-15: a member who holds nothing in the project leaves it; a capacity that comes from a record moves with the record. */
+  'project.remove_member'(ctx: Ctx, p: { projectId: string; userId: UserId; reason: string }) {
+    const proj = ctx.project(p.projectId);
+    const caps = proj.members.filter((m) => m.userId === p.userId);
+    ctx.check(caps.length, 'ليس عضوًا في المشروع');
+    ctx.require('project.staff', { depts: [...new Set(caps.map((m) => m.deptCode ?? ctx.user(p.userId).deptCode))] });
+    ctx.check(p.reason.trim(), 'السبب مطلوب');
+    const held = [
+      proj.pmId === p.userId && 'مدير المشروع — يُغيَّر بترشيح واعتماد',
+      proj.departments.some((d) => d.managerId === p.userId) && 'مدير قسم مشارك',
+      caps.some((m) => m.capacity === 'opportunity_owner') && 'مسؤول الفرصة — يتبع المبيعات',
+      proj.scopeItems.some((i) => i.ownerId === p.userId) && 'مسؤول بنود — أسندها لغيره أولًا',
+      ctx.s.gov.some((g) => g.projectId === proj.id && !['issued', 'closed_not_issued'].includes(g.status) && (g.licensingOfficerId === p.userId || g.expeditorId === p.userId)) && 'على معاملة حكومية مفتوحة — أعد إسنادها أولًا',
+    ].filter(Boolean);
+    ctx.check(!held.length, `لا يُزال: ${held.join('، ')}`);
+    for (const m of caps) ctx.dropMember(proj, p.userId, m.capacity, p.reason);
+    ctx.notify([p.userId], { title: `انتهت عضويتك في المشروع ${proj.id}`, body: p.reason, type: 'project.member_removed' });
   },
 
   // ── Preparation (PJ-06…PJ-08) ─────────────────────────────────────────────────
@@ -469,10 +524,7 @@ export const projectCommands = {
       proj.expectedEndDate = proj.contractEndDate;
     }
     proj.phases = schedulePhases(ctx.now, proj.phases, proj.dayType, ctx.s.settings);
-    for (const d of ctx.s.deliverables.filter((x) => x.projectId === proj.id && x.status === 'not_started')) {
-      if (d.requiresGov) createGovForDeliverable(ctx, proj, d);
-      else d.status = 'in_preparation';
-    }
+    startDeliverables(ctx, proj);
     for (const pay of ctx.s.payments.filter((x) => x.projectId === proj.id && x.condition === 'advance' && x.entitlement === 'not_due')) {
       pay.entitlement = 'due';
       pay.dueAt = ctx.now;
@@ -561,8 +613,7 @@ export const projectCommands = {
     proj.changeRequests.push(cr);
     const names: Record<string, string> = { add_department: 'إضافة قسم', free_addition: 'إضافة دون مقابل', paid_addition: 'إضافة بمقابل', exclusion: 'استبعاد مخرج', track: 'مسار تنفيذ مستقل' };
     ctx.event(`change.${p.kind}.requested`, { type: 'change', id: cr.id }, `طلب ${names[p.kind]}: ${p.reason}`, proj.id);
-    const to = p.kind === 'paid_addition' ? [ctx.oppOwnerOf(proj)]
-      : p.kind === 'track' && !proj.multiDept ? [ctx.deptManager(proj.leadDept)] : ctx.directors();
+    const to = p.kind === 'paid_addition' ? [ctx.oppOwnerOf(proj)] : approverIds(ctx.s, ...changeApproval(proj, cr));
     ctx.notify(to, { title: `${names[p.kind]} بانتظار قرارك — ${proj.id}`, body: p.reason, link: `${link(proj)}?tab=changes`, type: 'change.requested' });
     return cr.id;
   },
@@ -571,8 +622,11 @@ export const projectCommands = {
     const proj = ctx.project(p.projectId);
     const cr = proj.changeRequests.find((c) => c.id === p.requestId) ?? ctx.fail('طلب غير موجود');
     ctx.check(cr.status === 'pending', 'تم البت في هذا الطلب');
-    if (cr.kind === 'track' && !proj.multiDept) ctx.require('project.staff', { depts: [proj.leadDept] });
-    else ctx.require('project.approve_change');
+    ctx.requireApprover(...changeApproval(proj, cr));
+    if (cr.kind === 'exclusion') {
+      const d = ctx.deliverable(cr.deliverableId ?? '');
+      ctx.check(p.decision !== 'approved' || !['client_approved', 'excluded'].includes(d.status), 'اعتُمد المخرج من العميل بعد الطلب — لم يعد قابلًا للاستبعاد');
+    }
     if (p.decision !== 'approved') ctx.check(p.note.trim(), 'السبب مطلوب');
     cr.status = p.decision;
     cr.decidedBy = ctx.actorId as UserId;
@@ -783,22 +837,29 @@ function addItem(ctx: Ctx, proj: Project, title: string, dept: DeptCode, origin:
     const d: Deliverable = {
       id: `DLV-${proj.id.slice(4)}-${String(ctx.s.deliverables.filter((x) => x.projectId === proj.id).length + 1).padStart(2, '0')}`,
       projectId: proj.id, title: t, scopeItemIds: [item.id], deptCode: dept, technical: true, requiresGov: false,
-      status: proj.status === 'in_progress' ? 'in_preparation' : 'not_started', revisions: [], origin,
+      status: 'not_started', revisions: [], origin,
     };
     ctx.s.deliverables.push(d);
   }
+  startDeliverables(ctx, proj);
 }
 
 function newChain(ctx: Ctx, proj: Project, kind: ApprovalChain['kind'], reason: string, returnTo: ProjectState): ApprovalChain {
-  const steps: ChainStep[] = [];
-  if (kind === 'closure') {
-    steps.push({ key: 'dept_managers', approverIds: [...new Set(proj.departments.map((d) => d.managerId).filter(Boolean))], decisions: [], status: 'pending' });
-  }
-  steps.push({ key: 'director', approverIds: ctx.directors(), decisions: [], status: kind === 'closure' ? 'waiting' : 'pending' });
-  steps.push({ key: 'finance', approverIds: ctx.finance(), decisions: [], status: 'waiting' });
-  steps.push({ key: 'ceo', approverIds: ctx.ceos(), decisions: [], status: 'waiting' });
+  const requester = ctx.actorId as UserId;
+  const candidates: [ChainStep['key'], UserId[]][] = [
+    ...(kind === 'closure' ? [['dept_managers', [...new Set(proj.departments.map((d) => d.managerId).filter(Boolean))]] as [ChainStep['key'], UserId[]]] : []),
+    ['director', ctx.directors()],
+    ['finance', ctx.finance()],
+    ['ceo', ctx.ceos()],
+  ];
+  // F6: the requester approves no step; a step left with nobody is covered by the steps after it.
   // Department managers decide in parallel and all must approve; the other steps need one holder.
-  return { kind, requestedBy: ctx.actorId as UserId, requestedAt: ctx.now, reason, steps, status: 'pending', returnTo };
+  const steps: ChainStep[] = candidates
+    .map(([key, ids]) => ({ key, approverIds: ids.filter((id) => id !== requester), decisions: [], status: 'waiting' as ChainStep['status'] }))
+    .filter((st) => st.approverIds.length > 0);
+  ctx.check(steps.length, 'لا يوجد معتمد لهذا الطلب غير طالبه');
+  steps[0].status = 'pending';
+  return { kind, requestedBy: requester, requestedAt: ctx.now, reason, steps, status: 'pending', returnTo };
 }
 
 function notifyStep(ctx: Ctx, proj: Project, chain: ApprovalChain) {
@@ -831,4 +892,7 @@ export function resumeProject(ctx: Ctx, proj: Project, why: string) {
   }
   ctx.event('project.resumed', { type: 'project', id: proj.id }, `${why} بعد ${days} يوم تعليق — التأخر ظاهر والموعد التعاقدي محفوظ`, proj.id);
   ctx.notify(proj.members.map((m) => m.userId), { title: `استؤنف المشروع ${proj.id}`, link: link(proj), type: 'project.resumed' });
+  // Scope added while suspended opens now; work finished while suspended may complete the project (AD-05).
+  startDeliverables(ctx, proj);
+  checkTechnicalCompletion(ctx, proj);
 }

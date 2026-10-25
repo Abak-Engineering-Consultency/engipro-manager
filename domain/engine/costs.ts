@@ -1,3 +1,4 @@
+import { approverIds } from '../selectors';
 import type { CostRequest, Project } from '../types';
 import { Ctx } from './core';
 
@@ -40,14 +41,14 @@ export const costCommands = {
     const c: CostRequest = { ...p, id: ctx.nextId('CR'), requestedBy: ctx.actorId as string, requestedAt: ctx.now, status: 'submitted', decisions: [], paid: 0, payments: [] };
     ctx.s.costs.push(c);
     ctx.event('cost.submitted', { type: 'cost', id: c.id }, `طلب تكلفة: ${c.service} (${c.amount} ر.س، ${c.kind === 'planned' ? 'مخطط' : c.kind === 'unplanned' ? 'غير مخطط' : 'تجاوز تقدير'})`, proj.id);
-    ctx.notify(ctx.directors(), { title: `طلب تكلفة بانتظار قرارك: ${c.service}`, body: `${proj.id} — ${c.amount} ر.س`, link: clink(c), type: 'cost_request.submitted' });
+    ctx.notify(approverIds(ctx.s, 'cost_request.approve', [c.requestedBy]), { title: `طلب تكلفة بانتظار قرارك: ${c.service}`, body: `${proj.id} — ${c.amount} ر.س`, link: clink(c), type: 'cost_request.submitted' });
     return c.id;
   },
 
   'cost.decide'(ctx: Ctx, p: { costId: string; decision: 'approved' | 'returned' | 'rejected'; note: string }) {
-    ctx.require('cost_request.approve');
     const c = ctx.cost(p.costId);
     ctx.check(c.status === 'submitted', 'الطلب ليس بانتظار القرار');
+    ctx.requireApprover('cost_request.approve', [c.requestedBy]);
     if (p.decision !== 'approved') ctx.check(p.note.trim(), 'السبب مطلوب');
     const proj = ctx.project(c.projectId);
     if (p.decision === 'approved') {
@@ -71,7 +72,7 @@ export const costCommands = {
     c.decisions.push({ by: ctx.actorId as string, decision: 'resubmitted', note: p.note, at: ctx.now });
     c.status = 'submitted';
     ctx.event('cost.resubmitted', { type: 'cost', id: c.id }, `أعيد تقديم الطلب: ${p.note}`, c.projectId);
-    ctx.notify(ctx.directors(), { title: `طلب تكلفة معدّل: ${c.service}`, link: clink(c), type: 'cost_request.submitted' });
+    ctx.notify(approverIds(ctx.s, 'cost_request.approve', [c.requestedBy]), { title: `طلب تكلفة معدّل: ${c.service}`, link: clink(c), type: 'cost_request.submitted' });
   },
 
   'cost.pay'(ctx: Ctx, p: { costId: string; amount: number; proof: string }) {

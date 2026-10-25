@@ -1,6 +1,7 @@
 import { addCalendarDays, addHours, fmtDateTime } from '../calendar';
 import { visitTypeName } from '../catalog';
 import type { ISO, PaymentItem, RecordLink, UserId, Visit, VisitBilling, VisitType } from '../types';
+import { approverIds } from '../selectors';
 import { Ctx } from './core';
 
 const vlink = (v: Visit) => `/visits?id=${v.id}`;
@@ -21,12 +22,20 @@ function assertFree(ctx: Ctx, people: UserId[], start: ISO, end: ISO, exceptId?:
   ctx.fail(`تعارض مواعيد: ${who.join('، ')} لديه ${c[0].id} (${fmtDateTime(c[0].plannedStart)}) — اختر وقتًا آخر`);
 }
 
-/** Who approves a supervision report: the PM, or the department manager when the PM did the visit (VS-06, AC-11). */
-function reportApprover(ctx: Ctx, v: Visit): UserId {
+const reportScope = (ctx: Ctx, v: Visit) => {
   const proj = v.link?.projectId ? ctx.s.projects.find((p) => p.id === v.link!.projectId) : undefined;
+  return { proj, scope: { own: !!proj?.pmId && proj.pmId === ctx.actorId, depts: [ctx.user(v.ownerId).deptCode, proj?.leadDept] } };
+};
+
+/**
+ * Who approves a supervision report: the PM, or the department manager when the PM did the visit
+ * (VS-06, AC-11). Never the executor (F6): when the PM is also that manager, it goes up a level.
+ */
+function reportApprover(ctx: Ctx, v: Visit): UserId {
+  const { proj, scope } = reportScope(ctx, v);
   if (proj?.pmId && proj.pmId !== v.ownerId) return proj.pmId;
-  const owner = ctx.user(v.ownerId);
-  return ctx.deptManager(owner.deptCode) ?? ctx.deptManager(proj?.leadDept) ?? ctx.directors()[0];
+  const managers = [ctx.deptManager(ctx.user(v.ownerId).deptCode), ctx.deptManager(proj?.leadDept)];
+  return managers.find((id) => id && id !== v.ownerId) ?? approverIds(ctx.s, 'visit.approve_report', [v.ownerId], { depts: scope.depts })[0];
 }
 
 export const visitCommands = {
@@ -146,8 +155,7 @@ export const visitCommands = {
     ctx.check(v.status === 'report_pending' && v.report, 'لا يوجد تقرير بانتظار الاعتماد');
     ctx.check(v.report.approverId === ctx.actorId, 'الاعتماد لمعتمد التقرير المحدد');
     ctx.check(v.ownerId !== ctx.actorId, 'معتمد التقرير غير المنفّذ');
-    const proj = v.link?.projectId ? ctx.s.projects.find((x) => x.id === v.link!.projectId) : undefined;
-    ctx.require('visit.approve_report', { own: proj?.pmId === ctx.actorId, depts: [ctx.user(v.ownerId).deptCode] });
+    ctx.requireApprover('visit.approve_report', [v.ownerId], reportScope(ctx, v).scope);
     Object.assign(v.report, { decision: p.decision, note: p.note, at: ctx.now });
     if (p.decision === 'returned') {
       ctx.check(p.note.trim(), 'ملاحظة الإعادة مطلوبة');

@@ -1,6 +1,6 @@
 import { isAfter } from './calendar';
 import { allows, deptsOf, hasRole, inDept } from './permissions';
-import { startGate } from './selectors';
+import { changeApproval, mayApprove, startGate } from './selectors';
 import type { AppState, ISO, User } from './types';
 
 /**
@@ -90,32 +90,26 @@ export function derivedActions(s: AppState, u: User | undefined): DerivedAction[
     for (const p of s.projects.filter((x) => x.status === 'awaiting_assignment' && !x.receivedAt)) {
       add({ key: `recv:${p.id}`, title: 'استلم المشروع وحدد الأقسام', detail: `${p.id} — ${p.title}`, link: `/projects/${p.id}`, kind: 'approval', since: p.createdAt, projectId: p.id });
     }
-    for (const p of s.projects.filter((x) => x.pmNomination?.status === 'pending')) {
-      add({ key: `pm:${p.id}`, title: 'اعتمد مدير المشروع', detail: `${p.id} — ${s.users.find((x) => x.id === p.pmNomination!.nomineeId)?.name ?? ''}`, link: `/projects/${p.id}`, kind: 'approval', since: p.pmNomination!.at, projectId: p.id });
-    }
   }
-  if (allows(u, 'project.approve_change')) {
-    for (const p of s.projects) for (const c of p.changeRequests.filter((x) => x.status === 'pending' && !(x.kind === 'track' && !p.multiDept))) {
-      add({ key: `chg:${c.id}`, title: 'قرار طلب تغيير', detail: `${c.id} — ${c.reason}`, link: `/projects/${p.id}?tab=changes`, kind: 'approval', since: c.requestedAt, projectId: p.id });
-    }
+  // ── Decisions that go to a holder who is not a party to the request (F6) ───
+  for (const p of s.projects.filter((x) => x.pmNomination?.status === 'pending' && mayApprove(s, u, 'project.assign_manager', [x.pmNomination.nominatedBy, x.pmNomination.nomineeId]))) {
+    add({ key: `pm:${p.id}`, title: 'اعتمد مدير المشروع', detail: `${p.id} — ${s.users.find((x) => x.id === p.pmNomination!.nomineeId)?.name ?? ''}`, link: `/projects/${p.id}`, kind: 'approval', since: p.pmNomination!.at, projectId: p.id });
   }
-  if (allows(u, 'cost_request.approve')) {
-    for (const c of s.costs.filter((x) => x.status === 'submitted')) {
-      add({ key: `cost:${c.id}`, title: 'قرار طلب تكلفة', detail: `${c.service} — ${c.amount} ر.س`, link: `/projects/${c.projectId}?tab=costs&c=${c.id}`, kind: 'approval', since: c.requestedAt, projectId: c.projectId });
-    }
+  for (const p of s.projects) for (const c of p.changeRequests.filter((x) => x.status === 'pending' && mayApprove(s, u, ...changeApproval(p, x)))) {
+    add({ key: `chg:${c.id}`, title: c.kind === 'track' && !p.multiDept ? 'قرار مسار تنفيذ مستقل' : 'قرار طلب تغيير', detail: `${c.id} — ${c.reason}`, link: `/projects/${p.id}?tab=changes`, kind: 'approval', since: c.requestedAt, projectId: p.id });
+  }
+  for (const c of s.costs.filter((x) => x.status === 'submitted' && mayApprove(s, u, 'cost_request.approve', [x.requestedBy]))) {
+    add({ key: `cost:${c.id}`, title: 'قرار طلب تكلفة', detail: `${c.service} — ${c.amount} ر.س`, link: `/projects/${c.projectId}?tab=costs&c=${c.id}`, kind: 'approval', since: c.requestedAt, projectId: c.projectId });
   }
 
   // ── Department manager ────────────────────────────────────────────────────
   if (hasRole(u, 'dept_manager')) {
-    for (const p of s.projects.filter((x) => x.status === 'awaiting_assignment' && x.receivedAt && inDept(u, x.leadDept) && (!x.pmNomination || x.pmNomination.status === 'returned'))) {
+    for (const p of s.projects.filter((x) => x.status === 'awaiting_assignment' && x.receivedAt && !x.pmId && inDept(u, x.leadDept) && (!x.pmNomination || x.pmNomination.status === 'returned'))) {
       add({ key: `nom:${p.id}`, title: 'رشّح مدير المشروع', detail: `${p.id} — ${p.title}`, link: `/projects/${p.id}`, kind: 'work', since: p.receivedAt, projectId: p.id });
     }
     for (const p of s.projects.filter((x) => ['preparing', 'in_progress', 'suspended'].includes(x.status))) {
       const missing = p.scopeItems.filter((i) => inDept(u, i.deptCode) && !i.ownerId);
       if (missing.length) add({ key: `own:${p.id}`, title: 'عيّن مسؤولي بنود قسمك', detail: `${p.id} — ${missing.length} بند`, link: `/projects/${p.id}?tab=team`, kind: 'work', projectId: p.id });
-      for (const c of p.changeRequests.filter((x) => x.status === 'pending' && x.kind === 'track' && !p.multiDept && inDept(u, p.leadDept))) {
-        add({ key: `chg:${c.id}`, title: 'قرار مسار تنفيذ مستقل', detail: c.reason, link: `/projects/${p.id}?tab=changes`, kind: 'approval', projectId: p.id });
-      }
     }
   }
   if (allows(u, 'deliverable.review', { depts: deptsOf(u) })) {

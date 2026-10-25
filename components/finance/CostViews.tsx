@@ -4,6 +4,7 @@ import { useLookup, useStore } from '../../app/store';
 import { fmtDate } from '../../domain/calendar';
 import { COST_STATES } from '../../domain/labels';
 import { allows } from '../../domain/permissions';
+import { mayApprove } from '../../domain/selectors';
 import type { AppState, CostRequest, Project } from '../../domain/types';
 import { CommandButton, DateText, Drawer, Fact, Money, Notice, Pill, StatePill, Table, Td, Timeline } from '../ui';
 
@@ -33,7 +34,7 @@ export function CostDrawer({ project, id, onClose }: { project: Project; id?: st
 
   const actions = (
     <>
-      {allows(me, 'cost_request.approve') && c.status === 'submitted' && (
+      {c.status === 'submitted' && mayApprove(state, me, 'cost_request.approve', [c.requestedBy]) && (
         <CommandButton command="cost.decide" base={base} label="قرار مدير الأقسام"
           intro={<>{c.kind !== 'planned' && !c.justification ? 'تكلفة غير مخططة دون مبرر: لا تُعتمد — أعدها للاستكمال. ' : ''}{cap ? `المشروع باستثناء: المستخدم ${cap.used.toLocaleString('en')} من سقف ${cap.exc.costCap.toLocaleString('en')} ر.س.` : ''}</>}
           fields={[

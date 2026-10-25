@@ -21,7 +21,9 @@ export function linkSummary(s: AppState, p: Project, pay: PaymentItem): string {
   return `${KIND_LABELS[pay.link.kind]}: ${names.join('، ')}`;
 }
 
+/** A5: entitlement, invoicing and collection are separate — until it is fully collected, which settles all three. */
 export function ThreeDims({ pay }: { pay: PaymentItem }) {
+  if (pay.collection === 'fully_collected') return <StatePill s={COLLECTION.fully_collected} />;
   return (
     <span className="flex flex-wrap gap-1">
       <StatePill s={ENTITLEMENT[pay.entitlement]} />

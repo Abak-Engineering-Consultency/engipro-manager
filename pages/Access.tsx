@@ -7,7 +7,7 @@ import type { RoleId } from '../domain/types';
 import { Card, cn, Id, PageHeader, Pill, PersonChip, Select, Table, Tabs, Td } from '../components/ui';
 
 const ROLES: RoleId[] = ['ceo', 'main_dept_manager', 'dept_manager', 'engineer', 'accountant', 'sales_rep', 'sales_manager', 'admin'];
-const ACCESS_LABEL = { full: 'كامل', finance: 'المالية فقط', client: 'مستندات العميل' } as const;
+const ACCESS_LABEL = { full: 'كامل', finance: 'المالية فقط', client: 'مستندات العميل', gov: 'المعاملات' } as const;
 type View = 'matrix' | 'direct' | 'check';
 
 /** One hue, darker for wider scope: own → department → all. */

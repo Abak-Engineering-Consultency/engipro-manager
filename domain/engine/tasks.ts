@@ -97,6 +97,7 @@ export const taskCommands = {
     ctx.check([t.ownerId, t.creatorId, proj?.pmId].includes(ctx.actorId as UserId), 'يغيّر المسؤول: المسؤول الحالي أو المنشئ أو مدير المشروع');
     ctx.check(!['completed', 'cancelled'].includes(t.status), 'المهمة منتهية');
     ctx.check(p.toId !== t.ownerId, 'اختر شخصًا آخر');
+    ctx.check(p.toId !== t.reviewerId, 'المراجع غير مسؤول المهمة — غيّر المراجع أولًا (F6)');
     ctx.check(p.reason.trim(), 'السبب مطلوب');
     t.reassignLog.push({ from: t.ownerId, to: p.toId, reason: p.reason, at: ctx.now, by: ctx.actorId as UserId });
     const from = t.ownerId;
