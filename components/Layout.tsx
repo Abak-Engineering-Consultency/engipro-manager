@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell, CalendarClock, CheckCircle2, ChevronsUpDown, FolderKanban, Inbox, Info, Landmark, LayoutDashboard, ListChecks, MapPin,
@@ -177,6 +177,7 @@ function DemoClock() {
   const { state, advance, reset } = useStore();
   const [open, setOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  useEscape(open, () => setOpen(false));
   return (
     <div className="relative">
       <button className="flex items-center gap-2 rounded-lg px-2 py-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen((o) => !o)} title="تاريخ النموذج" aria-label="تاريخ النموذج">
@@ -215,9 +216,20 @@ function DemoClock() {
   );
 }
 
+/** Escape closes an open popover. */
+function useEscape(open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [open, close]);
+}
+
 function NotificationsBell() {
   const { state, me, markRead } = useStore();
   const [open, setOpen] = useState(false);
+  useEscape(open, () => setOpen(false));
   const navigate = useNavigate();
   const mine = state.notifications.filter((n) => n.userId === me.id);
   const unread = mine.filter((n) => !n.read).length;

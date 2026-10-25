@@ -17,8 +17,8 @@ const SCOPE_CLS = {
   all: 'bg-brand-600 text-white',
 } as const;
 
-function ScopeTag({ scope }: { scope: keyof typeof SCOPE_CLS }) {
-  return <span className={cn('inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', SCOPE_CLS[scope])}>{SCOPE_NAMES[scope]}</span>;
+function ScopeTag({ scope, short }: { scope: keyof typeof SCOPE_CLS; short?: boolean }) {
+  return <span className={cn('inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', SCOPE_CLS[scope])}>{short && scope === 'own' ? 'الخاص' : SCOPE_NAMES[scope]}</span>;
 }
 
 /** Permission = role + direct grants + project membership + record scope. */
@@ -50,7 +50,7 @@ export const Access: React.FC = () => {
           <>
             <div className="flex flex-wrap items-center gap-4 border-b border-line px-5 py-3 text-xs text-muted">
               <span>النطاق:</span>
-              <span className="flex items-center gap-1.5"><ScopeTag scope="own" /> عضو المشروع بالصفة المطلوبة</span>
+              <span className="flex items-center gap-1.5"><ScopeTag scope="own" short /> عضو المشروع بالصفة المطلوبة</span>
               <span className="flex items-center gap-1.5"><ScopeTag scope="department" /> سجلات قسمه</span>
               <span className="flex items-center gap-1.5"><ScopeTag scope="all" /> كل السجلات</span>
             </div>
@@ -76,7 +76,7 @@ export const Access: React.FC = () => {
                             const gr = ROLE_GRANTS[r].find((x) => x.perm === p.key);
                             return (
                               <td key={r} className="px-2 py-2.5 text-center">
-                                {gr ? <ScopeTag scope={gr.scope} /> : <span className="text-faint">—</span>}
+                                {gr ? <ScopeTag scope={gr.scope} short /> : <span className="text-faint">—</span>}
                               </td>
                             );
                           })}

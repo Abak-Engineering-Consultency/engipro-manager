@@ -90,7 +90,7 @@ let fail = 0;
   await as('عبدالرحمن الحربي'); await go(G);
   await cmd('إسناد لمعقّب', { select: { 'المعقّب': 'محمد الشهري' } });
   await see('رقم الطلب', 'transaction drawer open'); await see('معقّب', 'expeditor shown');
-  await go('/dashboard'); await page.getByRole('button', { name: '+أسبوع' }).click(); await page.waitForTimeout(300);
+  await go('/dashboard'); await page.getByRole('button', { name: 'تاريخ النموذج' }).click(); await page.getByRole('button', { name: '+ أسبوع' }).click(); await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   await go('/work'); await see('تأخر التحديث الأسبوعي', 'transactions manager sees the missing weekly update');
   await as('محمد الشهري'); await go(G);
   await cmd('تحديث المتابعة الأسبوعي', { fill: { 'النتيجة': 'قيد المراجعة الفنية', 'حالة المنصة': 'تحت الدراسة' } });

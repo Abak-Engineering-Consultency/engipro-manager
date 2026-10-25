@@ -74,15 +74,13 @@ export const Visits: React.FC = () => {
         </Card>
       )}
 
-      <Card title="اليوم" subtitle={todays.length ? `${todays.length} زيارة` : undefined}>
-        {todays.length ? (
+      {todays.length > 0 && (
+        <Card title="اليوم" subtitle={`${todays.length} زيارة`}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {todays.map((v) => <VisitCard key={v.id} visit={v} onOpen={open} />)}
           </div>
-        ) : (
-          <p className="text-sm text-muted">لا زيارات اليوم.</p>
-        )}
-      </Card>
+        </Card>
+      )}
 
       <Card title="الأسبوع">
         <WeekView visits={weekVisits} now={state.now} onOpen={open} />
@@ -107,11 +105,11 @@ export const Visits: React.FC = () => {
                   <Id>{v.id}</Id>
                 </Td>
                 <Td className="text-sm text-ink-2">{visitTypeName(v.type)}</Td>
-                <Td><span className="text-xs text-ink-2">{v.link ? `${RECORD_TYPE_NAMES[v.link.type]}: ${v.link.label}` : '—'}</span></Td>
+                <Td className="max-w-[240px]"><span className="block truncate text-xs text-ink-2" title={v.link?.label}>{v.link ? `${RECORD_TYPE_NAMES[v.link.type]}: ${v.link.label}` : '—'}</span></Td>
                 <Td><span className="whitespace-nowrap text-xs tabular">{fmtDateTime(v.plannedStart)}</span></Td>
                 <Td className="whitespace-nowrap text-sm text-ink-2">{userName(v.ownerId)}</Td>
                 <Td>
-                  <span className="text-xs text-muted">{VISIT_BILLING[v.billing]}</span>
+                  <span className="whitespace-nowrap text-xs text-muted">{VISIT_BILLING[v.billing]}</span>
                   {v.claimId && <span className="block text-xs text-st-success">طولب بها · <span className="ltr-iso">{v.claimId}</span></span>}
                 </Td>
                 <Td><StatePill s={VISIT_STATES[v.status]} /></Td>

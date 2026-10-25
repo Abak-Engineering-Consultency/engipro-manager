@@ -467,10 +467,10 @@ function Gantt({ phases, p }: { phases: Phase[]; p: Project }) {
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted">
           <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-brand-500" /> مهمة</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-st-success" /> منجزة</span>
-          <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-accent-400" /> بلا مسؤول</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-st-waiting" /> بلا مسؤول</span>
           {showDays && <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-sunken" /> عطلة / إجازة</span>}
           <span className="flex items-center gap-1"><span className="h-3 w-0.5 bg-st-danger" /> اليوم</span>
-          {p.contractEndDate && <span className="flex items-center gap-1"><span className="h-3 w-0.5 bg-accent-600" /> الموعد التعاقدي</span>}
+          {p.contractEndDate && <span className="flex items-center gap-1"><span className="h-3 w-0.5 bg-brand-900" /> الموعد التعاقدي</span>}
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -502,13 +502,13 @@ function Gantt({ phases, p }: { phases: Phase[]; p: Project }) {
                       <span
                         title={`${t.name}: ${fmtShort(t.startDate)} ← ${fmtShort(t.endDate)} (${t.duration} ${p.dayType === 'working' ? 'يوم عمل' : 'يوم'})`}
                         className={cn('absolute top-1.5 flex h-5 items-center overflow-hidden whitespace-nowrap rounded px-1.5 text-[10px] text-white',
-                          t.done ? 'bg-st-success' : !t.ownerId ? 'bg-accent-400' : 'bg-brand-500')}
+                          t.done ? 'bg-st-success' : !t.ownerId ? 'bg-st-waiting' : 'bg-brand-500')}
                         style={{ insetInlineStart: `${pct(s)}%`, width: `${Math.max(0.8, pct(e) - pct(s))}%` }}
                       >
                         {t.duration}ي
                       </span>
                       {now >= start && now <= start + totalDays * DAY && <span className="absolute inset-y-0 w-0.5 bg-st-danger" style={{ insetInlineStart: `${pct(now)}%` }} />}
-                      {p.contractEndDate && <span className="absolute inset-y-0 w-0.5 bg-accent-600" style={{ insetInlineStart: `${pct(Date.parse(p.contractEndDate))}%` }} />}
+                      {p.contractEndDate && <span className="absolute inset-y-0 w-0.5 bg-brand-900" style={{ insetInlineStart: `${pct(Date.parse(p.contractEndDate))}%` }} />}
                     </div>
                   </div>
                 );

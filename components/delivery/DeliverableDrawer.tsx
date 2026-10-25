@@ -51,7 +51,7 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       {isOwner && d.status === 'in_preparation' && !outOfScope && (
         <CommandButton command="deliverable.upload" base={base} variant={current?.files.length ? 'secondary' : 'primary'}
           label={current?.files.length && !current.issued ? `تحديث ملفات ${revLabel(current.rev)}` : `رفع ملفات ${revLabel(current && !current.issued ? current.rev : (current ? current.rev + 1 : 0))}`}
-          intro="ملف العمل قابل للتحديث حتى يصدر الإصدار؛ كل ملف يُسجَّل بمعرّف Nextcloud وبصمة."
+          intro="ملف العمل قابل للتحديث حتى يصدر الإصدار."
           fields={[{ name: 'files', label: 'أسماء الملفات (سطر لكل ملف)', type: 'lines', required: true, placeholder: `${d.id}-Rev00.pdf\n${d.id}-Rev00.dwg` }]}
           success="رُفعت الملفات" />
       )}
@@ -99,7 +99,7 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
         <CommandButton command="deliverable.log_follow_up" base={base} variant="secondary" label="تسجيل متابعة" fields={[{ name: 'note', label: 'نتيجة المتابعة مع العميل', type: 'textarea', required: true }]} success="سُجّلت المتابعة" />
       )}
       {isPm && d.status === 'awaiting_client' && project.deemedAcceptanceClause && (
-        <CommandButton command="deliverable.request_deemed" base={base} variant="accent" label="طلب إثبات قبول وفق العقد"
+        <CommandButton command="deliverable.request_deemed" base={base} variant="secondary" label="طلب إثبات قبول وفق العقد"
           intro={<>البند: «{project.deemedAcceptanceClause}». يُتاح بعد انقضاء مهلة الرد ({fmtDate(d.responseDueAt)}) ويعتمده مدير القسم، ويبقى مميزًا عن القبول الصريح.</>}
           fields={[{ name: 'evidence', label: 'الأدلة (إثبات الاستلام وانقضاء المهلة)', type: 'textarea', required: true }]} success="رُفع الطلب لمدير القسم" />
       )}
@@ -119,33 +119,33 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       onClose={onClose}
       title={
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Id className="text-sm">{d.id}</Id>
+          <h2 className="text-lg font-semibold text-ink">{d.title}</h2>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
             <StatePill s={DELIVERABLE_STATES[d.status]} />
-            {current && <Pill tone="brand">{revLabel(current.rev)}</Pill>}
-            <Pill tone="muted">{d.requiresGov ? 'يصدر من جهة حكومية' : d.technical ? 'فني — مراجعة إلزامية' : 'غير فني'}</Pill>
+            {current && <span className="ltr-iso font-semibold text-ink">{revLabel(current.rev)}</span>}
+            <span>{d.requiresGov ? 'يصدر من جهة حكومية' : d.technical ? 'فني — مراجعة إلزامية' : 'غير فني'}</span>
+            <span>· {deptName(d.deptCode)}{site && <> · {site.name}</>}</span>
+            <Id>{d.id}</Id>
           </div>
-          <h2 className="mt-1 text-base font-semibold text-ink">{d.title}</h2>
-          <p className="text-xs text-muted">{deptName(d.deptCode)}{site && <> · {site.name}</>}</p>
         </div>
       }
       actions={actions}
     >
-      <div className="space-y-5">
+      <div className="space-y-6">
         {outOfScope && !client && (
-          <Notice tone="waiting" title="خارج نطاق استثناء الرئيس التنفيذي — ينتظر الاعتماد المالي">
-            المسموح قبل الاعتماد المالي: {project.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ') || '—'} ({scope.exception?.id}). يُفتح العمل على هذا المخرج وتقديم معاملته وتكاليفه بعد اعتماد المالية للتفعيل.
+          <Notice tone="waiting" title="خارج نطاق الاستثناء — ينتظر الاعتماد المالي">
+            المسموح الآن: {project.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ') || '—'}. يُفتح هذا المخرج بعد اعتماد المالية.
           </Notice>
         )}
         {d.requiresGov && (
           <Notice tone="progress" title="يُعتمد هذا المخرج بصدور المعاملة الحكومية">
-            {gov ? <>المعاملة <Link className="underline" to={`/gov?id=${gov.id}`}>{gov.id}</Link> — {gov.procedureType} لدى {gov.authority}. لا رفع ملفات هنا؛ الصدور يسجّل الوثيقة ويفحص شرط الدفعة.</> : 'تُنشأ المعاملة عند بدء التنفيذ.'}
+            {gov ? <>المعاملة <Link className="font-medium underline" to={`/gov?id=${gov.id}`}>{gov.procedureType}</Link> لدى {gov.authority}. صدورها يسجّل الوثيقة.</> : 'تُنشأ المعاملة عند بدء التنفيذ.'}
           </Notice>
         )}
         {d.status === 'blocked_pending_payment' && (
           <Notice tone="danger" title="التسليم ممنوع حتى تؤكد المالية السداد">
             {blockers.map((b) => <span key={b.id} className="me-2"><Link className="underline" to={`/projects/${project.id}?tab=payments&p=${b.id}`}>{b.label}</Link> (<Money v={b.amount - b.collected} /> متبقية)</span>)}
-            <span className="block text-xs">الاستثناء للرئيس التنفيذي وحده، موثّق، ولا يُسقط المبلغ.</span>
+            <span className="mt-1 block text-xs">الاستثناء للرئيس التنفيذي وحده ولا يُسقط المبلغ.</span>
           </Notice>
         )}
         {d.ceoRelease && <Notice tone="waiting" title="استثناء الرئيس التنفيذي للتسليم قبل السداد">{d.ceoRelease.reason} — {userName(d.ceoRelease.by)} · {fmtDate(d.ceoRelease.at)} (المبلغ يبقى مستحقًا)</Notice>}
@@ -156,16 +156,17 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
           </Notice>
         )}
         {d.deemedRequest && (
-          <section className="rounded-md border border-accent-200 bg-accent-50 p-3 text-sm text-accent-700">
-            <p className="font-semibold">طلب إثبات قبول وفق العقد</p>
-            <p>{d.deemedRequest.clause}</p>
-            <p className="text-xs">الأدلة: {d.deemedRequest.evidence} — {userName(d.deemedRequest.by)} · {fmtDate(d.deemedRequest.at)}</p>
-            {d.deemedRequest.decision && <p className="text-xs">القرار: {d.deemedRequest.decision === 'approved' ? 'اعتُمد' : 'رُفض'} — {userName(d.deemedRequest.decidedBy)} {d.deemedRequest.note}</p>}
+          <section>
+            <Notice tone="progress" title="طلب إثبات قبول وفق العقد">
+              <p>{d.deemedRequest.clause}</p>
+              <p className="mt-1 text-xs">الأدلة: {d.deemedRequest.evidence} — {userName(d.deemedRequest.by)} · {fmtDate(d.deemedRequest.at)}</p>
+              {d.deemedRequest.decision && <p className="text-xs">القرار: {d.deemedRequest.decision === 'approved' ? 'اعتُمد' : 'رُفض'} — {userName(d.deemedRequest.decidedBy)} {d.deemedRequest.note}</p>}
+            </Notice>
           </section>
         )}
         {d.exclusion && <Notice tone="muted" title="مستبعد من النطاق بموافقة">{d.exclusion.reason} · موافقة العميل: {d.exclusion.clientAgreement} · اعتمده {userName(d.exclusion.approvedBy)}</Notice>}
 
-        <dl className="grid grid-cols-2 gap-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Fact label="مسؤول البند">{owners.length ? owners.map((o) => userName(o)).join('، ') : <span className="text-st-waiting">لم يُعيّن</span>}</Fact>
           <Fact label="البنود">{items.map((i) => i.title).join('، ') || '—'}</Fact>
           <Fact label="الدفعات المرتبطة">{linkedPayments.length ? linkedPayments.map((p) => <Link key={p.id} className="me-2 text-brand-700 hover:underline" to={`/projects/${project.id}?tab=payments&p=${p.id}`}>{p.label}</Link>) : '—'}</Fact>
@@ -173,12 +174,12 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
         </dl>
 
         {!d.requiresGov && !['client_approved', 'excluded'].includes(d.status) && isPm && (
-          <p className="text-xs text-muted">لاستبعاد المخرج من النطاق (طلب + اتفاق العميل + اعتماد مدير الأقسام) استخدم تبويب «الإضافات والتغييرات».</p>
+          <p className="text-xs text-muted">لاستبعاد المخرج من النطاق: تبويب «التغييرات».</p>
         )}
 
         <section>
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">سجل الإصدارات</h3>
-          {client && <p className="mb-2 text-xs text-muted">تظهر للمبيعات الإصدارات الصادرة فقط — لا ملفات العمل الداخلية.</p>}
+          <h3 className="mb-3 text-sm font-semibold text-ink">سجل الإصدارات {revisions.length > 0 && <span className="font-normal text-muted">· {revisions.length}</span>}</h3>
+          {client && <p className="mb-3 text-xs text-muted">تظهر للمبيعات الإصدارات الصادرة فقط.</p>}
           {!revisions.length && <p className="text-sm text-muted">لم يُرفع إصدار بعد.</p>}
           <div className="space-y-3">
             {revisions.slice().reverse().map((r) => <RevisionCard key={r.rev} r={r} hideInternal={client} />)}
@@ -193,20 +194,20 @@ function RevisionCard({ r, hideInternal }: { r: Revision; hideInternal: boolean 
   const { userName } = useLookup();
   const resp = r.clientResponse;
   return (
-    <article className={cn('rounded-lg border p-3', r.issued ? 'border-brand-200 bg-brand-50/40' : 'border-line')}>
+    <article className={cn('rounded-lg border p-4', r.issued ? 'border-brand-200' : 'border-line')}>
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="ltr-iso text-sm font-semibold text-brand-700">{revLabel(r.rev)}</span>
+          <span className="ltr-iso text-sm font-semibold text-ink">{revLabel(r.rev)}</span>
           <span className="text-xs text-muted">{REASONS[r.reason]} · <DateText iso={r.createdAt} /> · {userName(r.createdBy)}</span>
         </div>
-        {r.issued ? <Pill tone="brand"><Lock size={11} /> صادر — ثابت لا يُستبدل</Pill> : <Pill tone="muted">نسخة عمل</Pill>}
+        {r.issued ? <Pill tone="brand"><Lock size={11} /> صادر — ثابت</Pill> : <Pill tone="muted">نسخة عمل</Pill>}
       </header>
       {r.files.length > 0 && (
-        <div className="mt-2">
+        <div className="mt-3 overflow-hidden rounded-md border border-line">
           <Table head={['الملف', 'معرّف Nextcloud', 'البصمة', 'الحجم']}>
             {r.files.map((f) => (
               <tr key={f.fileId}>
-                <Td><span className="inline-flex items-center gap-1"><Paperclip size={13} className="text-muted" /><span className="ltr-iso">{f.name}</span></span></Td>
+                <Td><span className="inline-flex items-center gap-1"><Paperclip size={13} className="text-muted" /><bdi>{f.name}</bdi></span></Td>
                 <Td><span className="ltr-iso text-xs text-muted">{f.fileId}</span></Td>
                 <Td><span className="ltr-iso text-xs text-muted">{f.checksum}</span></Td>
                 <Td className="text-xs">{f.size}</Td>
@@ -216,7 +217,7 @@ function RevisionCard({ r, hideInternal }: { r: Revision; hideInternal: boolean 
         </div>
       )}
       {!hideInternal && r.reviewRounds.length > 0 && (
-        <div className="mt-2 space-y-1">
+        <div className="mt-3 space-y-1">
           {r.reviewRounds.map((rr, i) => (
             <p key={i} className="text-xs text-ink-2">
               جولة مراجعة {i + 1}: رُفعت <DateText iso={rr.submittedAt} />
@@ -226,18 +227,18 @@ function RevisionCard({ r, hideInternal }: { r: Revision; hideInternal: boolean 
         </div>
       )}
       {!hideInternal && r.approvedInternallyAt && (
-        <p className="mt-1 inline-flex items-center gap-1 text-xs text-st-success"><ShieldCheck size={13} /> اعتماد داخلي <DateText iso={r.approvedInternallyAt} /> مربوط بالبصمة</p>
+        <p className="mt-2 inline-flex items-center gap-1 text-xs text-st-success"><ShieldCheck size={13} /> اعتماد داخلي <DateText iso={r.approvedInternallyAt} /></p>
       )}
       {r.issued && (
-        <p className="mt-1 text-xs text-ink-2">
+        <p className="mt-2 text-xs text-ink-2">
           أُصدر <DateText iso={r.issued.at} time /> عبر {r.issued.channel} إلى {r.issued.recipient} · المرجع <span className="ltr-iso">{r.issued.reference}</span> · أرسله {userName(r.issued.by)}
         </p>
       )}
       {resp && (
-        <div className={cn('mt-2 rounded-md px-2 py-1.5 text-xs',
-          resp.kind === 'comments' ? 'bg-st-waiting-bg text-st-waiting' : resp.kind === 'deemed' ? 'border border-accent-200 bg-accent-50 text-accent-700' : 'bg-st-success-bg text-st-success')}
+        <div className={cn('mt-3 rounded-md px-3 py-2 text-xs',
+          resp.kind === 'comments' ? 'bg-st-waiting-bg text-st-waiting' : resp.kind === 'deemed' ? 'bg-st-progress-bg text-st-progress' : 'bg-st-success-bg text-st-success')}
         >
-          <p className="font-semibold">{resp.kind === 'comments' ? 'ملاحظات العميل' : resp.kind === 'deemed' ? 'قبول ضمني وفق بند العقد — مميز عن القبول الصريح' : 'قبول صريح من العميل'}</p>
+          <p className="font-semibold">{resp.kind === 'comments' ? 'ملاحظات العميل' : resp.kind === 'deemed' ? 'قبول ضمني وفق بند العقد' : 'قبول صريح من العميل'}</p>
           <p>{resp.note}{resp.proof && <> · الإثبات: {resp.proof}</>}</p>
           <p className="opacity-80"><DateText iso={resp.at} /> · {userName(resp.by)}</p>
         </div>
