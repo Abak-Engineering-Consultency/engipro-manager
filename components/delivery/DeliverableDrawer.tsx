@@ -204,13 +204,12 @@ function RevisionCard({ r, hideInternal }: { r: Revision; hideInternal: boolean 
       </header>
       {r.files.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-md border border-line">
-          <Table head={['الملف', 'معرّف Nextcloud', 'البصمة', 'الحجم']}>
+          <Table head={['الملف', 'معرّف Nextcloud', 'الحجم']}>
             {r.files.map((f) => (
               <tr key={f.fileId}>
-                <Td><span className="inline-flex items-center gap-1"><Paperclip size={13} className="text-muted" /><bdi>{f.name}</bdi></span></Td>
-                <Td><span className="ltr-iso text-xs text-muted">{f.fileId}</span></Td>
-                <Td><span className="ltr-iso text-xs text-muted">{f.checksum}</span></Td>
-                <Td className="text-xs">{f.size}</Td>
+                <Td><span className="inline-flex items-center gap-1.5"><Paperclip size={13} className="shrink-0 text-muted" /><bdi className="whitespace-nowrap">{f.name}</bdi></span></Td>
+                <Td><span className="ltr-iso text-xs text-muted" title={`البصمة: ${f.checksum}`}>{f.fileId}</span></Td>
+                <Td className="whitespace-nowrap text-xs">{f.size}</Td>
               </tr>
             ))}
           </Table>

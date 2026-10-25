@@ -41,7 +41,7 @@ export const ProjectTasksTab: React.FC<TabProps> = ({ project }) => {
         </dl>
         <NewTaskButton presetLink={{ type: 'project', id: project.id, label: `${project.id} — ${project.title}`, projectId: project.id }} onCreated={setOpen} />
       </div>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 grow">
           <Tabs<Filter>
             tabs={[{ id: 'open', label: 'المفتوحة' }, { id: 'generated', label: 'المولّدة' }, { id: 'all', label: 'الكل' }]}
@@ -49,7 +49,7 @@ export const ProjectTasksTab: React.FC<TabProps> = ({ project }) => {
             onChange={setFilter}
           />
         </div>
-        <div className="mb-2 flex rounded-lg border border-line bg-sunken p-1" role="group" aria-label="طريقة العرض">
+        <div className="flex rounded-lg border border-line bg-sunken p-1" role="group" aria-label="طريقة العرض">
           <button onClick={() => setBoard(false)} aria-pressed={!board} title="قائمة" aria-label="قائمة" className={cn('rounded-md p-1.5 transition-all', !board ? 'bg-card text-brand-700 shadow-sm' : 'text-muted hover:text-ink')}><List size={18} /></button>
           <button onClick={() => setBoard(true)} aria-pressed={board} title="لوحة" aria-label="لوحة" className={cn('rounded-md p-1.5 transition-all', board ? 'bg-card text-brand-700 shadow-sm' : 'text-muted hover:text-ink')}><Columns3 size={18} /></button>
         </div>

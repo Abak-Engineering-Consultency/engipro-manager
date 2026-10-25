@@ -222,9 +222,9 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
             <div className="overflow-hidden rounded-lg border border-line"><Table head={['الملف', 'معرّف Nextcloud', 'الحجم', 'أرفقه']}>
               {task.attachments.map((f) => (
                 <tr key={f.fileId}>
-                  <Td><bdi>{f.name}</bdi></Td>
+                  <Td><bdi className="whitespace-nowrap">{f.name}</bdi></Td>
                   <Td><span className="ltr-iso text-xs text-muted">{f.fileId}</span></Td>
-                  <Td className="text-xs">{f.size}</Td>
+                  <Td className="whitespace-nowrap text-xs">{f.size}</Td>
                   <Td className="text-xs">{userName(f.by)} · {fmtDateTime(f.at)}</Td>
                 </tr>
               ))}

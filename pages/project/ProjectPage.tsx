@@ -204,7 +204,7 @@ function QuickStat({ icon, label, children }: { icon: React.ReactNode; label: st
   return (
     <div className="flex-1 px-3 sm:px-5">
       <dt className="mb-1 whitespace-nowrap text-xs font-medium text-muted">{label}</dt>
-      <dd className={cn('flex items-center justify-center gap-1.5 text-sm font-semibold text-ink tabular')}>{icon}{children}</dd>
+      <dd className="flex items-center justify-center gap-1.5 whitespace-nowrap text-sm font-semibold text-ink tabular">{icon}{children}</dd>
     </div>
   );
 }
