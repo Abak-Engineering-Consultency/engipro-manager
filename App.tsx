@@ -1,46 +1,43 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { StoreProvider } from './app/store';
 import { Layout } from './components/Layout';
-import { Dashboard } from './components/Dashboard';
-import { ProjectsList } from './components/ProjectsList';
-import { CreateProjectWizard } from './components/CreateProjectWizard';
-import { ProjectDetail } from './components/ProjectDetail';
-import { AuthorityTracking } from './components/AuthorityTracking';
-import { MyTasks } from './components/MyTasks';
-import { TeamManagement } from './components/TeamManagement';
-import { RolesManagement } from './components/RolesManagement';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { Dashboard } from './pages/Dashboard';
+import { MyWork } from './pages/MyWork';
+import { Projects } from './pages/Projects';
+import { ProjectPage } from './pages/project/ProjectPage';
+import { Intake } from './pages/Intake';
+import { Gov } from './pages/Gov';
+import { Visits } from './pages/Visits';
+import { Finance } from './pages/Finance';
+import { Team } from './pages/Team';
+import { Access } from './pages/Access';
+import { Process } from './pages/Process';
+import { SettingsPage } from './pages/Settings';
 
-// Simple ScrollToTop component
-const ScrollToTop = () => {
-  const { pathname } = useLocation();
-  React.useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
-  return null;
-};
-
-const App: React.FC = () => {
-  return (
-    <LanguageProvider>
-      <HashRouter>
-        <ScrollToTop />
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="my-tasks" element={<MyTasks />} />
-            <Route path="projects" element={<ProjectsList />} />
-            <Route path="projects/new" element={<CreateProjectWizard />} />
-            <Route path="projects/:id" element={<ProjectDetail />} />
-            <Route path="authority" element={<AuthorityTracking />} />
-            <Route path="team" element={<TeamManagement />} />
-            <Route path="roles" element={<RolesManagement />} />
-          </Route>
-        </Routes>
-      </HashRouter>
-    </LanguageProvider>
-  );
-};
+const App: React.FC = () => (
+  <StoreProvider>
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="work" element={<MyWork />} />
+          <Route path="projects" element={<Projects />} />
+          <Route path="projects/:id" element={<ProjectPage />} />
+          <Route path="intake" element={<Intake />} />
+          <Route path="gov" element={<Gov />} />
+          <Route path="visits" element={<Visits />} />
+          <Route path="finance" element={<Finance />} />
+          <Route path="team" element={<Team />} />
+          <Route path="access" element={<Access />} />
+          <Route path="process" element={<Process />} />
+          <Route path="settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+      </Routes>
+    </HashRouter>
+  </StoreProvider>
+);
 
 export default App;
