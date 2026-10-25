@@ -27,10 +27,10 @@ export const ClosureTab: React.FC<TabProps> = ({ project: p }) => {
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <Card title="الاكتمال الفني" icon={<ClipboardCheck size={18} />} actions={<StatePill s={PROJECT_STATES[p.status]} />}>
           <dl className="grid grid-cols-3 gap-4">
-            {[['معتمد', done], ['مستبعد', excluded], ['مفتوح', open.length]].map(([l, v]) => (
+            {[['معتمد', done], ['مستبعد', excluded], ['مفتوح', open.length]].map(([l, v], i) => (
               <div key={l as string}>
                 <dt className="text-xs text-muted">{l}</dt>
-                <dd className="text-xl font-bold tabular text-ink">{v}<span className="text-sm font-normal text-muted"> / {ds.length}</span></dd>
+                <dd className="text-xl font-bold tabular text-ink">{v}{i === 0 && <span className="text-sm font-normal text-muted"> من {ds.length}</span>}</dd>
               </div>
             ))}
           </dl>

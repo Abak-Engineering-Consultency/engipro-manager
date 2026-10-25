@@ -66,7 +66,7 @@ export const DeliverablesTab: React.FC<TabProps> = ({ project, access }) => {
       {!groups.length && <Empty title={access === 'client' ? 'لا مخرجات جاهزة للإرسال بعد' : 'لا توجد مخرجات'} hint="تُنشأ المخرجات من خدمات العرض المقبول مع بدء التنفيذ." />}
 
       {groups.map((g) => (
-        <section key={g.key} className="overflow-hidden rounded-lg border border-line">
+        <section key={g.key} className="overflow-hidden rounded-lg border border-line [&_table]:min-w-[860px] [&_table]:table-fixed [&_th:first-child]:w-[32%] [&_th:nth-child(2)]:w-[10%] [&_th:nth-child(3)]:w-[14%] [&_th:nth-child(4)]:w-[10%] [&_th:nth-child(5)]:w-[11%] [&_th:nth-child(6)]:w-[11%]">
           <header className="flex items-center justify-between gap-3 border-b border-line bg-page px-4 py-2.5">
             <h3 className="text-sm font-semibold text-ink">{g.title} <span className="font-normal text-muted">· {g.items.length}</span></h3>
             {g.suspended && <Pill tone="waiting">الموقع معلّق: {g.suspended.reason}</Pill>}
