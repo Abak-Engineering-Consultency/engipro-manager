@@ -3,7 +3,7 @@ import { useStore } from '../app/store';
 import { fmtDate, fromInputDate, toInputDate } from '../domain/calendar';
 import { allows } from '../domain/permissions';
 import type { Settings } from '../domain/types';
-import { Button, Card, Field, Input, Notice, PageHeader, Rule } from '../components/ui';
+import { Button, Card, Field, Input, Notice, PageHeader, Code } from '../components/ui';
 
 type NumKey = { [K in keyof Settings]: Settings[K] extends number ? K : never }[keyof Settings];
 
@@ -21,7 +21,7 @@ const NUMBERS: { key: NumKey; label: string; unit: string; source: string }[] = 
 
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 
-/** 11-E — company values. Contract terms take precedence (D18). */
+/** 11-E — company values. Contract terms take precedence. */
 export const SettingsPage: React.FC = () => {
   const { state, me, dispatch } = useStore();
   const canEdit = allows(me, 'admin.settings');
@@ -33,7 +33,7 @@ export const SettingsPage: React.FC = () => {
     <div className="space-y-4">
       <PageHeader
         title="الإعدادات القابلة للضبط"
-        subtitle="قيم الشركة الافتراضية من القسم 11-E. شروط العقد تتقدم عليها دائمًا (D18): مهلة الرد ونوع الأيام وبند القبول الضمني ومهلة كل دفعة تأتي من العرض المقبول."
+        subtitle="قيم الشركة الافتراضية من القسم 11-E. شروط العقد تتقدم عليها دائمًا: مهلة الرد ونوع الأيام وبند القبول الضمني ومهلة كل دفعة تأتي من العرض المقبول."
         actions={canEdit && <Button disabled={!dirty} onClick={() => dispatch('settings.update', { patch: draft }, 'حُفظت الإعدادات')}>حفظ</Button>}
       />
       {!canEdit && <Notice tone="waiting">للاطلاع فقط — التعديل يتطلب صلاحية admin.settings (تصرّف بصفة «مدير النظام»).</Notice>}
@@ -41,7 +41,7 @@ export const SettingsPage: React.FC = () => {
       <Card title="المهل والتذكيرات والتصعيد">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {NUMBERS.map((n) => (
-            <Field key={n.key} label={n.label} hint={<span className="flex items-center gap-1">المصدر في اللوحة: <Rule>{n.source}</Rule></span>}>
+            <Field key={n.key} label={n.label} hint={<span className="flex items-center gap-1">المصدر في اللوحة: <Code>{n.source}</Code></span>}>
               <div className="flex items-center gap-2">
                 <Input type="number" min={0} dir="ltr" disabled={!canEdit} value={draft[n.key]} onChange={(e) => setDraft({ ...draft, [n.key]: Number(e.target.value) })} className="max-w-28" />
                 <span className="text-sm text-muted">{n.unit}</span>

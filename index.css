@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 /*
- * ABAK design tokens — the same values as Abak_NEW_design (apps/web/src/styles/tokens.css).
- * Brand blue for actions and navigation, gold as a sparing accent, semantic status
- * colours pulled away from the gold. Components bind to these names, never to raw hex.
+ * Colours from Abak_NEW_design (apps/web/src/styles/tokens.css) on the original EngiPro layout:
+ * dark sidebar, white top bar, white cards on a light page. Brand blue is for actions, navigation
+ * and the active state; gold stays in the logo; status colours are only used for status.
  */
 @theme {
-  --font-sans: "IBM Plex Sans Arabic", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
 
   --color-brand-50: #F0F7FA;
   --color-brand-100: #D9EBF2;
@@ -92,8 +92,15 @@
   --color-muted: #5E6E79;
   --color-faint: #7F8D97;
 
-  --radius-card: 8px;
-  --shadow-card: 0 1px 2px rgba(15, 44, 58, 0.06), 0 1px 3px rgba(15, 44, 58, 0.08);
+  /* Sidebar: the darkest brand step, like the original slate-900 sidebar */
+  --color-sidebar: #0F2C3A;
+  --color-sidebar-hover: #163F52;
+  --color-sidebar-line: #1E4255;
+  --color-sidebar-text: #C5D6DF;
+  --color-sidebar-muted: #7E9AA8;
+
+  --radius-card: 12px;
+  --shadow-card: 0 1px 2px rgba(15, 44, 58, 0.05);
   --shadow-overlay: 0 8px 28px rgba(15, 44, 58, 0.18);
 }
 
@@ -107,7 +114,7 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 0.875rem;
-  line-height: 1.7;
+  line-height: 1.5;
   background: var(--color-page);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
@@ -131,6 +138,14 @@ body {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
+}
+
+/* An empty state inside a card or panel needs no box of its own: the card already contains it */
+section .empty-state,
+.rounded-xl .empty-state {
+  border-color: transparent;
+  background: transparent;
+  padding-block: 2rem;
 }
 
 :where(a, button, input, textarea, select, [tabindex]):focus-visible {

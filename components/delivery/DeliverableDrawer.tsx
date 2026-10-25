@@ -8,7 +8,7 @@ import { DELIVERABLE_STATES } from '../../domain/labels';
 import { allows } from '../../domain/permissions';
 import { exceptionScope, oppOwner, type ProjectAccess } from '../../domain/selectors';
 import type { Deliverable, Project, Revision } from '../../domain/types';
-import { CommandButton, DateText, Drawer, Fact, Id, Money, Notice, Pill, Rule, StatePill, Table, Td, cn } from '../ui';
+import { CommandButton, DateText, Drawer, Fact, Id, Money, Notice, Pill, StatePill, Table, Td, cn } from '../ui';
 
 const REASONS: Record<Revision['reason'], string> = {
   initial: 'الإصدار الأول',
@@ -18,7 +18,7 @@ const REASONS: Record<Revision['reason'], string> = {
 
 const CHANNELS = ['البريد الإلكتروني', 'بوابة العميل', 'تسليم ورقي موقع', 'رابط مشاركة Nextcloud', 'منصة الجهة'].map((c) => ({ value: c, label: c }));
 
-/** Deliverables a sales person may see: what is ready to send, sent or approved — never internal work (NX-03). */
+/** Deliverables a sales person may see: what is ready to send, sent or approved — never internal work. */
 export const clientVisible = (d: Deliverable) =>
   ['ready_for_delivery', 'blocked_pending_payment', 'awaiting_client', 'deemed_acceptance_review', 'client_approved'].includes(d.status) || d.revisions.some((r) => r.issued);
 
@@ -51,14 +51,14 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       {isOwner && d.status === 'in_preparation' && !outOfScope && (
         <CommandButton command="deliverable.upload" base={base} variant={current?.files.length ? 'secondary' : 'primary'}
           label={current?.files.length && !current.issued ? `تحديث ملفات ${revLabel(current.rev)}` : `رفع ملفات ${revLabel(current && !current.issued ? current.rev : (current ? current.rev + 1 : 0))}`}
-          intro="ملف العمل قابل للتحديث حتى يصدر الإصدار؛ كل ملف يُسجَّل بمعرّف Nextcloud وبصمة (NX-04)."
+          intro="ملف العمل قابل للتحديث حتى يصدر الإصدار؛ كل ملف يُسجَّل بمعرّف Nextcloud وبصمة."
           fields={[{ name: 'files', label: 'أسماء الملفات (سطر لكل ملف)', type: 'lines', required: true, placeholder: `${d.id}-Rev00.pdf\n${d.id}-Rev00.dwg` }]}
           success="رُفعت الملفات" />
       )}
       {isOwner && d.status === 'in_preparation' && !!current?.files.length && (
         d.technical ? (
           <CommandButton command="deliverable.submit" base={base} label="رفع للمراجعة الداخلية" success="أُرسل للمراجعة"
-            confirm="المخرج فني: المراجعة الداخلية إلزامية من مدير القسم أو مفوّض غير المعدّ (DL-02)." />
+            confirm="المخرج فني: المراجعة الداخلية إلزامية من مدير القسم أو مفوّض غير المعدّ." />
         ) : (
           <CommandButton command="deliverable.submit" base={base} label="تجهيز للتسليم" success="تم"
             fields={[{ name: 'withReview', label: 'أرسله للمراجعة الداخلية (اختياري للمخرج غير الفني)', type: 'checkbox' }]} />
@@ -73,7 +73,7 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       )}
       {isPm && d.status === 'ready_for_delivery' && (
         <CommandButton command="deliverable.deliver" base={base} label="إرسال موثق للعميل" title={`تسليم ${revLabel(current?.rev)} — ${d.title}`}
-          intro={blockers.length ? <Notice tone="waiting">العقد يشترط سداد «{blockers.map((b) => b.label).join('، ')}» قبل هذا التسليم؛ إن لم تؤكد المالية التحصيل سيُمنع التسليم (DL-04).</Notice> : 'يُثبت الإرسال: القناة، المستلم، التاريخ، ورقم الإصدار — والإصدار الصادر لا يُستبدل.'}
+          intro={blockers.length ? <Notice tone="waiting">العقد يشترط سداد «{blockers.map((b) => b.label).join('، ')}» قبل هذا التسليم؛ إن لم تؤكد المالية التحصيل سيُمنع التسليم.</Notice> : 'يُثبت الإرسال: القناة، المستلم، التاريخ، ورقم الإصدار — والإصدار الصادر لا يُستبدل.'}
           fields={[
             { name: 'channel', label: 'القناة', type: 'select', options: CHANNELS },
             { name: 'recipient', label: 'المستلم لدى العميل', type: 'text', required: true },
@@ -82,12 +82,12 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       )}
       {allows(me, 'project.grant_exception') && d.status === 'blocked_pending_payment' && (
         <CommandButton command="deliverable.ceo_release" base={base} variant="danger" label="استثناء الرئيس التنفيذي للتسليم"
-          intro="الاستثناء موثّق ولا يُسقط المبلغ المستحق (DL-04)." fields={[{ name: 'reason', label: 'السبب', type: 'textarea', required: true }]} success="سُجّل الاستثناء" />
+          intro="الاستثناء موثّق ولا يُسقط المبلغ المستحق." fields={[{ name: 'reason', label: 'السبب', type: 'textarea', required: true }]} success="سُجّل الاستثناء" />
       )}
       {isPm && d.status === 'awaiting_client' && (
         <>
           <CommandButton command="deliverable.client_response" base={base} variant="secondary" label="ملاحظات العميل"
-            intro={`تُنشئ ${revLabel((current?.rev ?? 0) + 1)} ولا تمسح ${revLabel(current?.rev)} ولا استحقاقًا سابقًا (DL-07).`}
+            intro={`تُنشئ ${revLabel((current?.rev ?? 0) + 1)} ولا تمسح ${revLabel(current?.rev)} ولا استحقاقًا سابقًا.`}
             fields={[{ name: 'note', label: 'نص الملاحظات', type: 'textarea', required: true }]}
             transform={(v) => ({ ...v, kind: 'comments' })} success="فُتح إصدار جديد" />
           <CommandButton command="deliverable.client_response" base={base} label="قبول صريح من العميل"
@@ -100,7 +100,7 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       )}
       {isPm && d.status === 'awaiting_client' && project.deemedAcceptanceClause && (
         <CommandButton command="deliverable.request_deemed" base={base} variant="accent" label="طلب إثبات قبول وفق العقد"
-          intro={<>البند: «{project.deemedAcceptanceClause}». يُتاح بعد انقضاء مهلة الرد ({fmtDate(d.responseDueAt)}) ويعتمده مدير القسم، ويبقى مميزًا عن القبول الصريح (F8).</>}
+          intro={<>البند: «{project.deemedAcceptanceClause}». يُتاح بعد انقضاء مهلة الرد ({fmtDate(d.responseDueAt)}) ويعتمده مدير القسم، ويبقى مميزًا عن القبول الصريح.</>}
           fields={[{ name: 'evidence', label: 'الأدلة (إثبات الاستلام وانقضاء المهلة)', type: 'textarea', required: true }]} success="رُفع الطلب لمدير القسم" />
       )}
       {isReviewer && d.status === 'deemed_acceptance_review' && d.deemedRequest?.by !== me.id && (
@@ -134,36 +134,36 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
       <div className="space-y-5">
         {outOfScope && !client && (
           <Notice tone="waiting" title="خارج نطاق استثناء الرئيس التنفيذي — ينتظر الاعتماد المالي">
-            المسموح قبل الاعتماد المالي: {project.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ') || '—'} ({scope.exception?.id}). يُفتح العمل على هذا المخرج وتقديم معاملته وتكاليفه بعد اعتماد المالية للتفعيل. <Rule>F15</Rule>
+            المسموح قبل الاعتماد المالي: {project.scopeItems.filter((i) => scope.allowedItemIds.includes(i.id)).map((i) => i.title).join('، ') || '—'} ({scope.exception?.id}). يُفتح العمل على هذا المخرج وتقديم معاملته وتكاليفه بعد اعتماد المالية للتفعيل.
           </Notice>
         )}
         {d.requiresGov && (
           <Notice tone="progress" title="يُعتمد هذا المخرج بصدور المعاملة الحكومية">
-            {gov ? <>المعاملة <Link className="underline" to={`/gov?id=${gov.id}`}>{gov.id}</Link> — {gov.procedureType} لدى {gov.authority}. لا رفع ملفات هنا؛ الصدور يسجّل الوثيقة ويفحص شرط الدفعة. <Rule>GT-11</Rule></> : 'تُنشأ المعاملة عند بدء التنفيذ.'}
+            {gov ? <>المعاملة <Link className="underline" to={`/gov?id=${gov.id}`}>{gov.id}</Link> — {gov.procedureType} لدى {gov.authority}. لا رفع ملفات هنا؛ الصدور يسجّل الوثيقة ويفحص شرط الدفعة.</> : 'تُنشأ المعاملة عند بدء التنفيذ.'}
           </Notice>
         )}
         {d.status === 'blocked_pending_payment' && (
           <Notice tone="danger" title="التسليم ممنوع حتى تؤكد المالية السداد">
             {blockers.map((b) => <span key={b.id} className="me-2"><Link className="underline" to={`/projects/${project.id}?tab=payments&p=${b.id}`}>{b.label}</Link> (<Money v={b.amount - b.collected} /> متبقية)</span>)}
-            <span className="block text-xs">الاستثناء للرئيس التنفيذي وحده، موثّق، ولا يُسقط المبلغ. <Rule>DL-04</Rule></span>
+            <span className="block text-xs">الاستثناء للرئيس التنفيذي وحده، موثّق، ولا يُسقط المبلغ.</span>
           </Notice>
         )}
         {d.ceoRelease && <Notice tone="waiting" title="استثناء الرئيس التنفيذي للتسليم قبل السداد">{d.ceoRelease.reason} — {userName(d.ceoRelease.by)} · {fmtDate(d.ceoRelease.at)} (المبلغ يبقى مستحقًا)</Notice>}
         {d.status === 'awaiting_client' && (
           <Notice tone={responseLate ? 'danger' : 'waiting'} title={responseLate ? 'انقضت مهلة الرد — لا قبول آلي بالصمت' : 'بانتظار رد العميل'}>
-            مهلة الرد حتى {fmtDate(d.responseDueAt)} ({project.responseDays} يوم {project.dayType === 'working' ? 'عمل' : ''}) · المتابعة التالية {fmtDate(d.nextFollowUpAt)} <Rule>DL-06</Rule>
+            مهلة الرد حتى {fmtDate(d.responseDueAt)} ({project.responseDays} يوم {project.dayType === 'working' ? 'عمل' : ''}) · المتابعة التالية {fmtDate(d.nextFollowUpAt)}
             {responseLate && (project.deemedAcceptanceClause ? <span className="block text-xs">يمكن لمدير المشروع طلب إثبات القبول وفق بند العقد.</span> : <span className="block text-xs">لا يوجد في العقد بند قبول ضمني — استمر في المتابعة.</span>)}
           </Notice>
         )}
         {d.deemedRequest && (
           <section className="rounded-md border border-accent-200 bg-accent-50 p-3 text-sm text-accent-700">
-            <p className="font-semibold">طلب إثبات قبول وفق العقد <Rule>F8</Rule></p>
+            <p className="font-semibold">طلب إثبات قبول وفق العقد</p>
             <p>{d.deemedRequest.clause}</p>
             <p className="text-xs">الأدلة: {d.deemedRequest.evidence} — {userName(d.deemedRequest.by)} · {fmtDate(d.deemedRequest.at)}</p>
             {d.deemedRequest.decision && <p className="text-xs">القرار: {d.deemedRequest.decision === 'approved' ? 'اعتُمد' : 'رُفض'} — {userName(d.deemedRequest.decidedBy)} {d.deemedRequest.note}</p>}
           </section>
         )}
-        {d.exclusion && <Notice tone="muted" title="مستبعد من النطاق بموافقة">{d.exclusion.reason} · موافقة العميل: {d.exclusion.clientAgreement} · اعتمده {userName(d.exclusion.approvedBy)} <Rule>DL-15</Rule></Notice>}
+        {d.exclusion && <Notice tone="muted" title="مستبعد من النطاق بموافقة">{d.exclusion.reason} · موافقة العميل: {d.exclusion.clientAgreement} · اعتمده {userName(d.exclusion.approvedBy)}</Notice>}
 
         <dl className="grid grid-cols-2 gap-3">
           <Fact label="مسؤول البند">{owners.length ? owners.map((o) => userName(o)).join('، ') : <span className="text-st-waiting">لم يُعيّن</span>}</Fact>
@@ -173,12 +173,12 @@ export function DeliverableDrawer({ project, id, access, onClose }: { project: P
         </dl>
 
         {!d.requiresGov && !['client_approved', 'excluded'].includes(d.status) && isPm && (
-          <p className="text-xs text-muted">لاستبعاد المخرج من النطاق (طلب + اتفاق العميل + اعتماد مدير الأقسام) استخدم تبويب «الإضافات والتغييرات». <Rule>DL-15</Rule></p>
+          <p className="text-xs text-muted">لاستبعاد المخرج من النطاق (طلب + اتفاق العميل + اعتماد مدير الأقسام) استخدم تبويب «الإضافات والتغييرات».</p>
         )}
 
         <section>
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">سجل الإصدارات <Rule>NX-04</Rule></h3>
-          {client && <p className="mb-2 text-xs text-muted">تظهر للمبيعات الإصدارات الصادرة فقط — لا ملفات العمل الداخلية (NX-03).</p>}
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">سجل الإصدارات</h3>
+          {client && <p className="mb-2 text-xs text-muted">تظهر للمبيعات الإصدارات الصادرة فقط — لا ملفات العمل الداخلية.</p>}
           {!revisions.length && <p className="text-sm text-muted">لم يُرفع إصدار بعد.</p>}
           <div className="space-y-3">
             {revisions.slice().reverse().map((r) => <RevisionCard key={r.rev} r={r} hideInternal={client} />)}

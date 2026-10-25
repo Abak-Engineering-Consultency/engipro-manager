@@ -1,31 +1,31 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarDays, Columns3, List } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarDays, ClipboardCheck, Coins, Columns3, FileSearch, Gavel, Inbox, List, ListTodo, RefreshCw, UserCheck } from 'lucide-react';
 import { useStore } from '../app/store';
 import { addCalendarDays, dateKey, fmtDate, weekday } from '../domain/calendar';
 import { derivedActions, type DerivedAction } from '../domain/derived';
 import type { Task } from '../domain/types';
-import { Card, cn, Empty, Kpi, PageHeader, Pill, Rule, Tabs } from '../components/ui';
+import { Card, cn, Empty, Kpi, PageHeader, Tabs } from '../components/ui';
 import { NewTaskButton, TaskDrawer } from '../components/work/TaskDrawer';
 import { isOpen, isOverdue, TaskBoard, TaskCalendar, TaskList } from '../components/work/TaskViews';
 import { VisitCard, isMine } from '../components/visits/VisitParts';
 import { VisitDrawer } from '../components/visits/VisitDrawer';
 
-const KIND: Record<DerivedAction['kind'], { label: string; tone: 'waiting' | 'progress' | 'new' | 'brand' }> = {
-  approval: { label: 'قرار', tone: 'waiting' },
-  work: { label: 'عمل', tone: 'progress' },
-  follow_up: { label: 'متابعة', tone: 'new' },
-  finance: { label: 'مالية', tone: 'brand' },
-  review: { label: 'مراجعة', tone: 'waiting' },
+const KIND: Record<DerivedAction['kind'], { label: string; icon: React.ReactNode }> = {
+  approval: { label: 'قرار', icon: <Gavel size={16} /> },
+  work: { label: 'عمل', icon: <ClipboardCheck size={16} /> },
+  follow_up: { label: 'متابعة', icon: <RefreshCw size={16} /> },
+  finance: { label: 'مالية', icon: <Coins size={16} /> },
+  review: { label: 'مراجعة', icon: <FileSearch size={16} /> },
 };
 
 type TaskTab = 'mine' | 'created' | 'review' | 'contributing' | 'overdue';
 type View = 'list' | 'board' | 'calendar';
 
 const VIEWS: { id: View; label: string; icon: React.ReactNode }[] = [
-  { id: 'list', label: 'قائمة', icon: <List size={15} /> },
-  { id: 'board', label: 'لوحة', icon: <Columns3 size={15} /> },
-  { id: 'calendar', label: 'تقويم', icon: <CalendarDays size={15} /> },
+  { id: 'list', label: 'قائمة', icon: <List size={18} /> },
+  { id: 'board', label: 'لوحة', icon: <Columns3 size={18} /> },
+  { id: 'calendar', label: 'تقويم', icon: <CalendarDays size={18} /> },
 ];
 
 /** TK-10 — «مهامي»: derived actions + tasks + visits, each with its next step and block reason. */
@@ -67,66 +67,62 @@ export const MyWork: React.FC = () => {
     .sort((a, b) => a.plannedStart.localeCompare(b.plannedStart));
   const today = dateKey(state.now);
 
+  const late = (iso?: string) => !!iso && Date.parse(iso) < Date.parse(state.now);
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
-        title="إجراءاتي ومهامي"
-        subtitle={<>كل ما ينتظرك في مكان واحد: الإجراءات الرسمية المشتقة من سجلاتها، والمهام، والزيارات — دون تكرار <Rule>TK-10</Rule> <Rule>TK-02</Rule></>}
+        title="مهامي"
+        subtitle={<>بانتظارك: <span className="font-semibold text-ink">{actions.length + lists.mine.filter(isOpen).length}</span> بين إجراء ومهمة</>}
         actions={<NewTaskButton onCreated={openTask} />}
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Kpi label="إجراءات بانتظاري" value={actions.length} hint="من سجلاتها الرسمية" tone={actions.length ? 'waiting' : undefined} />
-        <Kpi label="مهامي المفتوحة" value={state.tasks.filter((t) => t.ownerId === me.id && isOpen(t)).length} />
-        <Kpi label="بانتظار مراجعتي" value={state.tasks.filter((t) => t.reviewerId === me.id && t.status === 'in_review').length} />
-        <Kpi label="متأخرة" value={lists.overdue.length} tone={lists.overdue.length ? 'danger' : undefined} />
-        <Kpi label="زياراتي هذا الأسبوع" value={myVisits.length} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label="إجراءات بانتظاري" value={actions.length} icon={<Inbox size={20} />} tone={actions.length ? 'waiting' : undefined} />
+        <Kpi label="مهامي المفتوحة" value={state.tasks.filter((t) => t.ownerId === me.id && isOpen(t)).length} icon={<ListTodo size={20} />} />
+        <Kpi label="بانتظار مراجعتي" value={state.tasks.filter((t) => t.reviewerId === me.id && t.status === 'in_review').length} icon={<UserCheck size={20} />} />
+        <Kpi label="متأخرة" value={lists.overdue.length} icon={<AlertTriangle size={20} />} tone={lists.overdue.length ? 'danger' : undefined} />
       </div>
 
-      <Card
-        title="إجراءات النظام بانتظارك"
-        subtitle="تُقرأ من حالة كل سجل (اعتماد، مراجعة، تسليم، تحصيل…) ولا تُخزن كمهام، فتختفي تلقائيًا عند إنجازها (F11)"
-        pad={false}
-      >
+      <Card title="إجراءات بانتظارك" icon={<Inbox size={18} />} pad={false}>
         {actions.length ? (
           <ul className="divide-y divide-line">
             {actions.map((a) => (
-              <li key={a.key} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-page">
-                <Pill tone={KIND[a.kind].tone}>{KIND[a.kind].label}</Pill>
-                <div className="min-w-0 grow basis-60">
-                  <p className="text-sm font-medium text-ink">{a.title}</p>
-                  <p className="truncate text-xs text-muted">{a.detail}</p>
-                </div>
-                <div className="text-xs text-muted tabular">
-                  {a.due ? (
-                    <span className={cn(Date.parse(a.due) < Date.parse(state.now) && 'font-medium text-st-danger')}>الموعد {fmtDate(a.due)}</span>
-                  ) : a.since ? <span>منذ {fmtDate(a.since)}</span> : null}
-                </div>
-                <Link to={a.link} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-brand-700 hover:bg-brand-50">
-                  فتح <ArrowLeft size={14} />
+              <li key={a.key}>
+                <Link to={a.link} className="group flex flex-wrap items-center gap-4 px-5 py-3 hover:bg-page">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600" title={KIND[a.kind].label}>{KIND[a.kind].icon}</span>
+                  <span className="min-w-0 grow basis-60">
+                    <span className="block text-sm font-medium text-ink group-hover:text-brand-700">{a.title}</span>
+                    <span className="block truncate text-xs text-muted">{KIND[a.kind].label} · {a.detail}</span>
+                  </span>
+                  <span className="text-xs tabular text-muted">
+                    {a.due ? (
+                      <span className={cn(late(a.due) && 'font-medium text-st-danger')}>{late(a.due) ? 'متأخر — ' : ''}الموعد {fmtDate(a.due)}</span>
+                    ) : a.since ? <span>منذ {fmtDate(a.since)}</span> : null}
+                  </span>
+                  <ArrowLeft size={16} className="shrink-0 text-faint group-hover:text-brand-600" />
                 </Link>
               </li>
             ))}
           </ul>
         ) : (
-          <div className="p-4"><Empty title="لا توجد إجراءات بانتظارك الآن" hint="بدّل المستخدم من أعلى الشاشة لترى ما ينتظر كل دور في المسار." /></div>
+          <div className="p-5"><Empty title="لا توجد إجراءات بانتظارك الآن" hint="ستظهر هنا القرارات والمراجعات المطلوبة منك." /></div>
         )}
       </Card>
 
       <Card
         title="المهام"
-        subtitle="مسؤول واحد لكل مهمة؛ المعطّلة تُظهر سببها، والمتأخرة تُصعَّد مرة لكل مستوى (TK-05)"
+        icon={<ListTodo size={18} />}
         actions={
           <>
-            <label className="flex items-center gap-1.5 text-xs text-ink-2">
+            <label className="flex items-center gap-2 text-sm text-ink-2">
               <input type="checkbox" className="accent-brand-600" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} />
               إظهار المنتهية
             </label>
-            <div className="flex rounded-md border border-line p-0.5">
+            <div className="flex rounded-lg border border-line bg-sunken p-1" role="group" aria-label="طريقة العرض">
               {VIEWS.map((v) => (
-                <button key={v.id} onClick={() => setView(v.id)} className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-xs', view === v.id ? 'bg-brand-50 font-medium text-brand-700' : 'text-muted hover:text-ink')} title={v.label}>
+                <button key={v.id} onClick={() => setView(v.id)} aria-pressed={view === v.id} className={cn('rounded-md p-1.5 transition-all', view === v.id ? 'bg-card text-brand-600 shadow-sm' : 'text-muted hover:text-ink')} title={v.label} aria-label={v.label}>
                   {v.icon}
-                  <span className="hidden sm:inline">{v.label}</span>
                 </button>
               ))}
             </div>
@@ -134,7 +130,7 @@ export const MyWork: React.FC = () => {
         }
         pad={false}
       >
-        <div className="px-2">
+        <div className="px-5">
           <Tabs
             tabs={[
               { id: 'mine', label: 'المسندة إليّ', count: lists.mine.filter(isOpen).length },
@@ -147,7 +143,7 @@ export const MyWork: React.FC = () => {
             onChange={setTab}
           />
         </div>
-        <div className="p-4">
+        <div className="p-5">
           {view === 'list' && <TaskList tasks={tasks} onOpen={openTask} />}
           {view === 'board' && <TaskBoard tasks={tasks} onOpen={openTask} />}
           {view === 'calendar' && <TaskCalendar tasks={tasks} onOpen={openTask} />}
@@ -156,7 +152,6 @@ export const MyWork: React.FC = () => {
 
       <Card
         title="زياراتي هذا الأسبوع"
-        subtitle="بصفتي مسؤولًا أو مشاركًا"
         actions={<Link to="/visits" className="text-sm font-medium text-brand-700 hover:underline">كل الزيارات</Link>}
       >
         {myVisits.length ? (

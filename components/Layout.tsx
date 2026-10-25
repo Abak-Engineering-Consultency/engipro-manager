@@ -1,122 +1,119 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Bell, CalendarClock, CheckCircle2, ChevronDown, FolderKanban, Inbox, Info, Landmark, LayoutDashboard, ListChecks, MapPin,
-  Menu, RotateCcw, Settings, ShieldCheck, Users, Wallet, Workflow, X, XCircle,
+  Bell, CalendarClock, CheckCircle2, ChevronsUpDown, FolderKanban, Inbox, Info, Landmark, LayoutDashboard, ListChecks, MapPin,
+  Menu, RotateCcw, Search, Settings, ShieldCheck, Users, Wallet, Workflow, X, XCircle,
 } from 'lucide-react';
 import { useStore } from '../app/store';
 import { derivedActions } from '../domain/derived';
 import { fmtDateTime, fmtLong } from '../domain/calendar';
-import { ROLE_NAMES } from '../domain/labels';
+import { ROLE_NAMES, PROJECT_STATES } from '../domain/labels';
 import { holds } from '../domain/permissions';
+import { projectAccess } from '../domain/selectors';
 import type { RoleId, User } from '../domain/types';
-import { Avatar, Button, cn, Modal } from './ui';
+import { Avatar, Button, cn, Modal, StatePill } from './ui';
 
 interface NavItem { to: string; label: string; icon: React.ReactNode; show: (u: User) => boolean; badge?: number; group?: 'main' | 'admin' }
 
-export const Logo = ({ height = 36 }: { height?: number }) => (
-  <img src="/abak-logo.png" alt="أباك للاستشارات الهندسية" style={{ height, width: 'auto' }} className="block select-none object-contain" draggable={false} />
+export const Logo = ({ height = 36, light = false }: { height?: number; light?: boolean }) => (
+  <img src={light ? '/abak-logo-light.png' : '/abak-logo.png'} alt="أباك للاستشارات الهندسية" style={{ height, width: 'auto' }} className="block select-none object-contain" draggable={false} />
 );
 
 export const Layout: React.FC = () => {
   const { state, me } = useStore();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const actions = useMemo(() => derivedActions(state, me), [state, me]);
   const myOpenTasks = state.tasks.filter((t) => !['completed', 'cancelled'].includes(t.status) && (t.ownerId === me.id || (t.reviewerId === me.id && t.status === 'in_review'))).length;
 
   const nav: NavItem[] = [
-    { to: '/dashboard', label: 'لوحة المتابعة', icon: <LayoutDashboard size={19} />, show: () => true },
-    { to: '/work', label: 'إجراءاتي ومهامي', icon: <ListChecks size={19} />, show: () => true, badge: actions.length + myOpenTasks },
-    { to: '/projects', label: 'المشاريع', icon: <FolderKanban size={19} />, show: () => true },
-    { to: '/intake', label: 'التفعيل والاستلام', icon: <Inbox size={19} />, show: (u) => ['accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin'].includes(u.roleId) },
-    { to: '/gov', label: 'المعاملات الحكومية', icon: <Landmark size={19} />, show: (u) => holds(u, 'gov_transaction.prepare') || holds(u, 'gov_transaction.assign') || holds(u, 'gov_transaction.follow_up') || ['main_dept_manager', 'ceo', 'dept_manager', 'engineer', 'sales_rep', 'admin'].includes(u.roleId) },
-    { to: '/visits', label: 'الزيارات', icon: <MapPin size={19} />, show: (u) => holds(u, 'visit.manage') },
-    { to: '/finance', label: 'المالية', icon: <Wallet size={19} />, show: (u) => ['accountant', 'ceo'].includes(u.roleId) },
-    { to: '/team', label: 'الفريق وعبء العمل', icon: <Users size={19} />, show: (u) => ['main_dept_manager', 'dept_manager', 'ceo', 'admin'].includes(u.roleId) },
-    { to: '/process', label: 'مسار العمل (الفلوتشارت)', icon: <Workflow size={19} />, show: () => true, group: 'admin' },
-    { to: '/access', label: 'الصلاحيات', icon: <ShieldCheck size={19} />, show: () => true, group: 'admin' },
-    { to: '/settings', label: 'الإعدادات', icon: <Settings size={19} />, show: () => true, group: 'admin' },
+    { to: '/dashboard', label: 'لوحة التحكم', icon: <LayoutDashboard size={20} />, show: () => true },
+    { to: '/work', label: 'مهامي', icon: <ListChecks size={20} />, show: () => true, badge: actions.length + myOpenTasks },
+    { to: '/projects', label: 'المشاريع', icon: <FolderKanban size={20} />, show: () => true },
+    { to: '/intake', label: 'التفعيل والاستلام', icon: <Inbox size={20} />, show: (u) => ['accountant', 'ceo', 'main_dept_manager', 'dept_manager', 'sales_rep', 'sales_manager', 'admin'].includes(u.roleId) },
+    { to: '/gov', label: 'المعاملات الحكومية', icon: <Landmark size={20} />, show: (u) => holds(u, 'gov_transaction.prepare') || holds(u, 'gov_transaction.assign') || holds(u, 'gov_transaction.follow_up') || ['main_dept_manager', 'ceo', 'dept_manager', 'engineer', 'sales_rep', 'admin'].includes(u.roleId) },
+    { to: '/visits', label: 'الزيارات', icon: <MapPin size={20} />, show: (u) => holds(u, 'visit.manage') },
+    { to: '/finance', label: 'المالية', icon: <Wallet size={20} />, show: (u) => ['accountant', 'ceo'].includes(u.roleId) },
+    { to: '/team', label: 'الفريق والموارد', icon: <Users size={20} />, show: (u) => ['main_dept_manager', 'dept_manager', 'ceo', 'admin'].includes(u.roleId) },
+    { to: '/access', label: 'الأدوار والصلاحيات', icon: <ShieldCheck size={20} />, show: () => true, group: 'admin' },
+    { to: '/process', label: 'مسار العمل', icon: <Workflow size={20} />, show: () => true, group: 'admin' },
+    { to: '/settings', label: 'الإعدادات', icon: <Settings size={20} />, show: () => true, group: 'admin' },
   ];
   const items = nav.filter((n) => n.show(me));
 
-  const sidebar = (
-    <nav className="flex grow flex-col gap-0.5 overflow-y-auto p-2">
-      {items.map((n, i) => (
-        <React.Fragment key={n.to}>
-          {n.group === 'admin' && items[i - 1]?.group !== 'admin' && (
-            <div className="mt-3 border-t border-line pt-3">
-              <p className="px-3 pb-1 text-[11px] font-medium text-muted">المرجع والإعدادات</p>
-            </div>
-          )}
-          <NavLink
-            to={n.to}
-            onClick={() => setMobileOpen(false)}
-            className={({ isActive }) => cn(
-              'relative flex h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors',
-              isActive ? 'bg-brand-50 font-medium text-brand-700' : 'text-ink-2 hover:bg-sunken hover:text-ink',
+  const sidebar = (onNavigate: () => void) => (
+    <>
+      <nav className="flex grow flex-col gap-1 overflow-y-auto px-3 py-6">
+        {items.map((n, i) => (
+          <React.Fragment key={n.to}>
+            {n.group === 'admin' && items[i - 1]?.group !== 'admin' && (
+              <p className="mt-4 border-t border-sidebar-line px-3 pt-4 pb-2 text-xs font-semibold text-sidebar-muted">الإدارة</p>
             )}
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && <span className="absolute inset-y-2 start-0 w-0.5 rounded-full bg-brand-600" />}
-                <span className={isActive ? '' : 'text-muted'}>{n.icon}</span>
-                <span className="grow truncate">{n.label}</span>
-                {!!n.badge && <span className="rounded-full bg-brand-600 px-1.5 text-[11px] font-semibold text-white tabular">{n.badge}</span>}
-              </>
-            )}
-          </NavLink>
-        </React.Fragment>
-      ))}
-    </nav>
+            <NavLink
+              to={n.to}
+              onClick={onNavigate}
+              className={({ isActive }) => cn(
+                'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors',
+                isActive ? 'bg-brand-600 text-white shadow-md' : 'text-sidebar-text hover:bg-sidebar-hover hover:text-white',
+              )}
+            >
+              {n.icon}
+              <span className="grow truncate">{n.label}</span>
+              {!!n.badge && <span className="rounded-full bg-white/15 px-2 text-xs font-semibold text-white tabular">{n.badge}</span>}
+            </NavLink>
+          </React.Fragment>
+        ))}
+      </nav>
+      <div className="border-t border-sidebar-line p-3">
+        <ActorSwitcher />
+      </div>
+    </>
   );
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-page">
-      <header className="z-30 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-card px-3 lg:px-4">
-        <button className="rounded-md p-2 text-ink-2 hover:bg-sunken lg:hidden" onClick={() => setMobileOpen(true)} aria-label="القائمة">
-          <Menu size={20} />
-        </button>
-        <div className="hidden sm:block lg:hidden">
-          <Logo height={30} />
+    <div className="flex h-dvh overflow-hidden bg-page">
+      <aside className={cn('hidden shrink-0 flex-col bg-sidebar text-white lg:flex', collapsed ? 'lg:hidden' : 'w-64')}>
+        <div className="flex h-16 items-center border-b border-sidebar-line px-5">
+          <Logo light height={44} />
         </div>
-        <span className="hidden items-center gap-2 rounded-md border border-accent-200 bg-accent-50 px-2 py-1 text-xs text-accent-700 xl:inline-flex">
-          نموذج تفاعلي لمسار المشاريع — البيانات في هذا المتصفح فقط
-        </span>
-        <div className="ms-auto flex items-center gap-1.5">
-          <DemoClock />
-          <NotificationsBell />
-          <ActorSwitcher />
+        {sidebar(() => undefined)}
+      </aside>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)}>
+          <aside className="flex h-full w-72 flex-col bg-sidebar text-white shadow-overlay" onClick={(e) => e.stopPropagation()}>
+            <div className="flex h-16 items-center justify-between border-b border-sidebar-line px-6">
+              <Logo light height={36} />
+              <button className="rounded-lg p-1 text-sidebar-muted hover:bg-sidebar-hover hover:text-white" onClick={() => setMobileOpen(false)} aria-label="إغلاق القائمة">
+                <X size={20} />
+              </button>
+            </div>
+            {sidebar(() => setMobileOpen(false))}
+          </aside>
         </div>
-      </header>
+      )}
 
-      <div className="flex min-h-0 grow">
-        <aside className="hidden w-64 shrink-0 flex-col border-e border-line bg-card lg:flex">
-          <div className="flex h-16 items-center border-b border-line px-4">
-            <Logo height={40} />
+      <div className="flex min-w-0 grow flex-col">
+        <header className="z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-card px-4 shadow-sm md:px-6">
+          <div className="flex max-w-xl grow items-center gap-3">
+            <button
+              className="rounded-lg p-2 text-ink-2 hover:bg-sunken"
+              onClick={() => (window.matchMedia('(min-width: 1024px)').matches ? setCollapsed((c) => !c) : setMobileOpen(true))}
+              aria-label="القائمة"
+            >
+              <Menu size={22} />
+            </button>
+            <GlobalSearch />
           </div>
-          {sidebar}
-          <div className="border-t border-line p-3 text-[11px] leading-5 text-muted">
-            المرجع: لوحة FigJam «ABAK ERP — Full Process Flowchart» الأقسام 01–10 والقسم 11.
+          <div className="flex items-center gap-1 sm:gap-2">
+            <DemoClock />
+            <NotificationsBell />
           </div>
-        </aside>
-
-        {mobileOpen && (
-          <div className="fixed inset-0 z-50 bg-brand-900/40 lg:hidden" onClick={() => setMobileOpen(false)}>
-            <aside className="flex h-full w-72 flex-col bg-card shadow-overlay" onClick={(e) => e.stopPropagation()}>
-              <div className="flex h-16 items-center justify-between border-b border-line px-4">
-                <Logo height={36} />
-                <button className="rounded p-1 text-muted hover:bg-sunken" onClick={() => setMobileOpen(false)} aria-label="إغلاق">
-                  <X size={18} />
-                </button>
-              </div>
-              {sidebar}
-            </aside>
-          </div>
-        )}
+        </header>
 
         <main key={location.pathname} className="min-w-0 grow overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1500px] px-4 py-5 lg:px-6">
+          <div className="mx-auto w-full max-w-[1600px] p-4 md:p-6">
             <Outlet />
           </div>
         </main>
@@ -126,18 +123,81 @@ export const Layout: React.FC = () => {
   );
 };
 
+/** Projects the current person can open, by number, name or client. */
+function GlobalSearch() {
+  const { state, me } = useStore();
+  const navigate = useNavigate();
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const term = q.trim();
+  const results = term
+    ? state.projects
+      .filter((p) => projectAccess(state, me, p))
+      .filter((p) => p.id.toLowerCase().includes(term.toLowerCase()) || p.title.includes(term) || (state.clients.find((c) => c.id === p.clientId)?.name ?? '').includes(term))
+      .slice(0, 6)
+    : [];
+  const go = (id: string) => {
+    navigate(`/projects/${id}`);
+    setQ('');
+    setOpen(false);
+  };
+  return (
+    <div className="relative hidden grow sm:block">
+      <Search size={18} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-faint" />
+      <input
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && results[0]) go(results[0].id); if (e.key === 'Escape') setOpen(false); }}
+        placeholder="ابحث عن مشروع بالرقم أو الاسم أو العميل…"
+        aria-label="بحث"
+        className="h-10 w-full rounded-md border border-transparent bg-page ps-10 pe-3 text-sm text-ink placeholder:text-faint focus:border-brand-300 focus:bg-card focus:outline-none"
+      />
+      {open && term && (
+        <div className="absolute inset-x-0 z-50 mt-1 overflow-hidden rounded-lg border border-line bg-card shadow-overlay">
+          {results.map((p) => (
+            <button key={p.id} onMouseDown={() => go(p.id)} className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start hover:bg-page">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium text-ink">{p.title}</span>
+                <span className="ltr-iso text-xs text-muted">{p.id}</span>
+              </span>
+              <StatePill s={PROJECT_STATES[p.status]} />
+            </button>
+          ))}
+          {!results.length && <p className="px-4 py-3 text-sm text-muted">لا توجد نتائج</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The prototype's own date: moving it forward runs reminders, deadlines and escalations. */
 function DemoClock() {
   const { state, advance, reset } = useStore();
+  const [open, setOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   return (
-    <div className="flex items-center gap-1 rounded-md border border-line bg-page px-1.5 py-1">
-      <CalendarClock size={16} className="ms-1 hidden text-muted sm:block" />
-      <span className="hidden px-1 text-xs text-ink-2 md:inline" title="تاريخ النموذج — قدّمه لتجربة التذكيرات والمهل والتصعيد">{fmtLong(state.now)}</span>
-      <Button size="sm" variant="ghost" onClick={() => advance(1)} title="تقديم يوم">+يوم</Button>
-      <Button size="sm" variant="ghost" onClick={() => advance(7)} title="تقديم أسبوع">+أسبوع</Button>
-      <button className="rounded p-1.5 text-muted hover:bg-sunken" onClick={() => setConfirmReset(true)} title="إعادة البيانات" aria-label="إعادة البيانات">
-        <RotateCcw size={15} />
+    <div className="relative">
+      <button className="flex items-center gap-2 rounded-lg px-2 py-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen((o) => !o)} title="تاريخ النموذج" aria-label="تاريخ النموذج">
+        <CalendarClock size={20} />
+        <span className="hidden text-sm md:inline">{fmtLong(state.now)}</span>
       </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute end-0 z-50 mt-2 w-72 rounded-lg border border-line bg-card p-4 shadow-overlay">
+            <p className="text-xs text-muted">تاريخ النموذج</p>
+            <p className="text-base font-semibold text-ink">{fmtLong(state.now)}</p>
+            <p className="mt-1 text-xs text-muted">قدّم التاريخ لتجربة التذكيرات والمهل والتصعيد.</p>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => advance(1)}>+ يوم</Button>
+              <Button size="sm" variant="secondary" onClick={() => advance(7)}>+ أسبوع</Button>
+              <Button size="sm" variant="ghost" className="ms-auto" icon={<RotateCcw size={14} />} onClick={() => { setOpen(false); setConfirmReset(true); }}>إعادة البيانات</Button>
+            </div>
+          </div>
+        </>
+      )}
       <Modal
         open={confirmReset}
         onClose={() => setConfirmReset(false)}
@@ -149,7 +209,7 @@ function DemoClock() {
           </>
         }
       >
-        <p className="text-sm text-ink-2">تُمسح كل التغييرات في هذا المتصفح ويعود النموذج إلى بياناته الأولى (خمسة مشاريع في مراحل مختلفة وطلبا تفعيل).</p>
+        <p className="text-sm text-ink-2">تُمسح كل التغييرات في هذا المتصفح ويعود النموذج إلى بياناته الأولى.</p>
       </Modal>
     </div>
   );
@@ -163,32 +223,35 @@ function NotificationsBell() {
   const unread = mine.filter((n) => !n.read).length;
   return (
     <div className="relative">
-      <button className="relative rounded-md p-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen((o) => !o)} aria-label="الإشعارات">
-        <Bell size={19} />
-        {unread > 0 && <span className="absolute -top-0.5 end-0 min-w-4 rounded-full bg-st-danger px-1 text-center text-[10px] font-semibold leading-4 text-white tabular">{unread}</span>}
+      <button className="relative rounded-full p-2 text-ink-2 hover:bg-sunken" onClick={() => setOpen((o) => !o)} aria-label={unread ? `الإشعارات، ${unread} غير مقروءة` : 'الإشعارات'}>
+        <Bell size={20} />
+        {unread > 0 && <span className="absolute top-1 end-1 min-w-4 rounded-full bg-st-danger px-1 text-center text-[10px] font-semibold leading-4 text-white ring-2 ring-card tabular">{unread}</span>}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute end-0 z-50 mt-1 w-[min(92vw,380px)] rounded-lg border border-line bg-card shadow-overlay">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <p className="text-sm font-semibold text-ink">الإشعارات — {me.name}</p>
-              {unread > 0 && <button className="text-xs text-brand-700 hover:underline" onClick={() => markRead()}>تعليم الكل كمقروء</button>}
+          <div className="absolute end-0 z-50 mt-2 w-[min(92vw,380px)] overflow-hidden rounded-lg border border-line bg-card shadow-overlay">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
+              <p className="font-semibold text-ink">الإشعارات</p>
+              {unread > 0 && <button className="text-xs font-medium text-brand-700 hover:underline" onClick={() => markRead()}>تعليم الكل كمقروء</button>}
             </div>
             <ul className="max-h-[60vh] divide-y divide-line overflow-y-auto">
               {mine.slice(0, 25).map((n) => (
                 <li key={n.id}>
                   <button
-                    className={cn('block w-full px-3 py-2 text-start hover:bg-sunken', !n.read && 'bg-brand-50/60')}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-start hover:bg-page"
                     onClick={() => { markRead([n.id]); setOpen(false); if (n.link) navigate(n.link); }}
                   >
-                    <p className={cn('text-sm', n.read ? 'text-ink-2' : 'font-medium text-ink')}>{n.title}</p>
-                    {n.body && <p className="truncate text-xs text-muted">{n.body}</p>}
-                    <p className="text-[11px] text-faint">{fmtDateTime(n.at)}</p>
+                    <span className={cn('mt-2 h-2 w-2 shrink-0 rounded-full', n.read ? 'bg-transparent' : 'bg-brand-600')} />
+                    <span className="min-w-0">
+                      <span className={cn('block text-sm', n.read ? 'text-ink-2' : 'font-medium text-ink')}>{n.title}</span>
+                      {n.body && <span className="block truncate text-xs text-muted">{n.body}</span>}
+                      <span className="mt-0.5 block text-xs text-faint">{fmtDateTime(n.at)}</span>
+                    </span>
                   </button>
                 </li>
               ))}
-              {!mine.length && <li className="px-3 py-6 text-center text-sm text-muted">لا توجد إشعارات. الإشعار يصل لصاحب الإجراء الحالي والمعنيين فقط (F13).</li>}
+              {!mine.length && <li className="px-4 py-8 text-center text-sm text-muted">لا توجد إشعارات</li>}
             </ul>
           </div>
         </>
@@ -199,6 +262,7 @@ function NotificationsBell() {
 
 const ROLE_ORDER: RoleId[] = ['ceo', 'main_dept_manager', 'dept_manager', 'engineer', 'accountant', 'sales_rep', 'sales_manager', 'admin'];
 
+/** The person acting: in this prototype anyone can switch, to try each role's view. */
 function ActorSwitcher() {
   const { state, me, setActor } = useStore();
   const [open, setOpen] = useState(false);
@@ -206,34 +270,34 @@ function ActorSwitcher() {
   const groups = ROLE_ORDER.map((r) => ({ role: r, users: state.users.filter((u) => u.roleId === r && (!q || u.name.includes(q) || u.title.includes(q))) })).filter((g) => g.users.length);
   return (
     <div className="relative">
-      <button className="flex h-9 items-center gap-2 rounded-md ps-1 pe-2 hover:bg-sunken" onClick={() => setOpen((o) => !o)} title="تبديل المستخدم لتجربة دوره في المسار">
-        <Avatar user={me} size={28} />
-        <span className="hidden text-start leading-tight sm:block">
-          <span className="block max-w-[160px] truncate text-[13px] font-medium text-ink">{me.name}</span>
-          <span className="block max-w-[160px] truncate text-[11px] text-muted">{me.title}</span>
+      <button className="flex w-full items-center gap-3 rounded-md p-2 text-start hover:bg-sidebar-hover" onClick={() => setOpen((o) => !o)} title="تبديل المستخدم لتجربة دوره في المسار">
+        <Avatar user={me} size={36} />
+        <span className="min-w-0 grow">
+          <span className="block truncate text-sm font-medium text-white">{me.name}</span>
+          <span className="block truncate text-xs text-sidebar-muted">{me.title}</span>
         </span>
-        <ChevronDown size={14} className="text-muted" />
+        <ChevronsUpDown size={16} className="shrink-0 text-sidebar-muted" />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute end-0 z-50 mt-1 w-[min(92vw,340px)] rounded-lg border border-line bg-card shadow-overlay">
-            <div className="border-b border-line p-2">
-              <p className="px-1 pb-1 text-xs text-muted">تصرّف بصفة… (كل موظف يرى ويفعل ما تسمح به صلاحياته فقط)</p>
-              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالاسم أو المسمى" className="h-8 w-full rounded border border-line px-2 text-sm" />
+          <div className="absolute bottom-full start-0 z-50 mb-2 w-[min(88vw,320px)] rounded-lg border border-line bg-card text-ink shadow-overlay">
+            <div className="border-b border-line p-3">
+              <p className="pb-2 text-xs text-muted">تصرّف بصفة…</p>
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالاسم أو المسمى" className="h-9 w-full rounded-md border border-line px-3 text-sm focus:border-brand-500 focus:outline-none" />
             </div>
-            <div className="max-h-[65vh] overflow-y-auto py-1">
+            <div className="max-h-[60vh] overflow-y-auto py-1">
               {groups.map((g) => (
                 <div key={g.role}>
-                  <p className="px-3 pt-2 pb-1 text-[11px] font-medium text-muted">{ROLE_NAMES[g.role]}</p>
+                  <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted">{ROLE_NAMES[g.role]}</p>
                   {g.users.map((u) => (
-                    <button key={u.id} onClick={() => { setActor(u.id); setOpen(false); setQ(''); }} className={cn('flex w-full items-center gap-2 px-3 py-1.5 text-start hover:bg-sunken', u.id === me.id && 'bg-brand-50')}>
-                      <Avatar user={u} size={24} />
+                    <button key={u.id} onClick={() => { setActor(u.id); setOpen(false); setQ(''); }} className={cn('flex w-full items-center gap-3 px-4 py-2 text-start hover:bg-page', u.id === me.id && 'bg-brand-50')}>
+                      <Avatar user={u} size={28} />
                       <span className="min-w-0 grow">
                         <span className="block truncate text-sm text-ink">{u.name}</span>
-                        <span className="block truncate text-[11px] text-muted">{u.title}{u.grants.length ? ' · صلاحية مباشرة' : ''}</span>
+                        <span className="block truncate text-xs text-muted">{u.title}</span>
                       </span>
-                      {u.id === me.id && <CheckCircle2 size={15} className="text-brand-600" />}
+                      {u.id === me.id && <CheckCircle2 size={16} className="text-brand-600" />}
                     </button>
                   ))}
                 </div>
@@ -251,12 +315,12 @@ function Toasts() {
   return (
     <div className="pointer-events-none fixed bottom-4 start-4 z-[70] flex w-[min(92vw,420px)] flex-col gap-2">
       {toasts.map((t) => (
-        <div key={t.id} className={cn('pointer-events-auto flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm shadow-overlay',
+        <div key={t.id} className={cn('pointer-events-auto flex items-start gap-2 rounded-lg border px-4 py-3 text-sm shadow-overlay',
           t.kind === 'error' ? 'border-st-danger/30 bg-st-danger-bg text-st-danger' : t.kind === 'success' ? 'border-st-success/30 bg-st-success-bg text-st-success' : 'border-line bg-card text-ink-2')}
         >
-          {t.kind === 'error' ? <XCircle size={17} className="mt-0.5 shrink-0" /> : t.kind === 'success' ? <CheckCircle2 size={17} className="mt-0.5 shrink-0" /> : <Info size={17} className="mt-0.5 shrink-0" />}
+          {t.kind === 'error' ? <XCircle size={18} className="mt-0.5 shrink-0" /> : t.kind === 'success' ? <CheckCircle2 size={18} className="mt-0.5 shrink-0" /> : <Info size={18} className="mt-0.5 shrink-0" />}
           <span className="grow">{t.text}</span>
-          <button onClick={() => dismiss(t.id)} className="opacity-70 hover:opacity-100" aria-label="إغلاق"><X size={15} /></button>
+          <button onClick={() => dismiss(t.id)} className="opacity-70 hover:opacity-100" aria-label="إغلاق"><X size={16} /></button>
         </div>
       ))}
     </div>

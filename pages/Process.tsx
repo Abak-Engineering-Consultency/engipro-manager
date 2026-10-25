@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, PlayCircle } from 'lucide-react';
 import { useStore } from '../app/store';
 import { HARD_RULES, JOURNEYS, MASTER, RULE_COUNT, SECTIONS } from '../domain/process';
-import { Button, Card, PageHeader, Pill, Rule, Tabs } from '../components/ui';
+import { Button, Card, PageHeader, Pill, Tabs, Code } from '../components/ui';
 
 type View = 'journeys' | 'rules' | 'master' | 'hard';
 
@@ -125,7 +125,7 @@ function Rules() {
                 <tbody className="divide-y divide-line">
                   {rules.map((r) => (
                     <tr key={r.id}>
-                      <td className="px-3 py-2 align-top"><Rule>{r.id}</Rule></td>
+                      <td className="px-3 py-2 align-top"><Code>{r.id}</Code></td>
                       <td className="min-w-64 px-3 py-2 align-top text-ink">{r.text}</td>
                       <td className="px-3 py-2 align-top whitespace-nowrap">
                         <Link to={r.to} className="inline-flex items-center gap-1 text-brand-700 hover:underline">{r.where}<ArrowLeft size={13} /></Link>
@@ -150,7 +150,7 @@ function Hard() {
       {HARD_RULES.map((r) => (
         <div key={r.id} className="rounded-lg border border-line p-3">
           <div className="flex items-start gap-2">
-            <Rule>{r.id}</Rule>
+            <Code>{r.id}</Code>
             <p className="text-sm font-medium text-ink">{r.text}</p>
           </div>
           <p className="mt-1 text-xs text-muted">في المحرّك: <code dir="ltr">{r.how}</code></p>

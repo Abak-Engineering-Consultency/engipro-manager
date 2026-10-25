@@ -6,7 +6,7 @@ import { addCalendarDays, fmtDateTime } from '../../domain/calendar';
 import { BLOCK_TYPES, TASK_STATES } from '../../domain/labels';
 import { holds } from '../../domain/permissions';
 import type { RecordLink } from '../../domain/types';
-import { Button, CommandButton, DateText, Drawer, Fact, Id, Notice, PersonChip, Pill, Rule, StatePill, Table, Td, Textarea, Timeline, userOptions } from '../ui';
+import { Button, CommandButton, DateText, Drawer, Fact, Id, Notice, PersonChip, Pill, StatePill, Table, Td, Textarea, Timeline, userOptions } from '../ui';
 import { recordHref, recordOptions, RECORD_TYPE_NAMES, toRecordLink } from './records';
 import { isOverdue, PRIORITY, SOURCE_NAMES } from './TaskViews';
 
@@ -33,14 +33,14 @@ export function NewTaskButton({ presetLink, label = 'مهمة جديدة', varia
       size="md"
       icon={<Plus size={16} />}
       success="أُنشئت المهمة وأُبلغ المسؤول"
-      intro={<>مسؤول واحد لكل مهمة <Rule>TK-03</Rule>. المهمة لا تنفّذ اعتمادًا ولا تؤكد تحصيلًا <Rule>TK-07</Rule> — القرار الرسمي يبقى في سجله.</>}
+      intro={<>مسؤول واحد لكل مهمة. المهمة لا تنفّذ اعتمادًا ولا تؤكد تحصيلًا — القرار الرسمي يبقى في سجله.</>}
       fields={[
         { name: 'title', label: 'عنوان المهمة', type: 'text', required: true },
         { name: 'ownerId', label: 'المسؤول (شخص واحد)', type: 'select', options: userOptions(state.users), initial: me.id, required: true },
         { name: 'dueDate', label: 'الموعد', type: 'date', initial: addCalendarDays(state.now, 3), required: true },
         { name: 'priority', label: 'الأولوية', type: 'select', options: PRIORITY_OPTIONS },
-        { name: 'record', label: 'السجل المرتبط (اختياري)', type: 'select', options, initial: preset, hint: 'المهمة قد ترتبط بمشروع أو مخرج أو معاملة أو زيارة أو فرصة، أو تبقى مستقلة (TK-01).' },
-        { name: 'reviewerId', label: 'المراجع', type: 'select', options: [{ value: '', label: '— دون مراجع —' }, ...userOptions(state.users)], initial: '', hint: 'إلزامي إذا ارتبطت المهمة بمخرج فني (TK-06)، ويجب أن يكون غير المسؤول.' },
+        { name: 'record', label: 'السجل المرتبط (اختياري)', type: 'select', options, initial: preset, hint: 'المهمة قد ترتبط بمشروع أو مخرج أو معاملة أو زيارة أو فرصة، أو تبقى مستقلة.' },
+        { name: 'reviewerId', label: 'المراجع', type: 'select', options: [{ value: '', label: '— دون مراجع —' }, ...userOptions(state.users)], initial: '', hint: 'إلزامي إذا ارتبطت المهمة بمخرج فني، ويجب أن يكون غير المسؤول.' },
         { name: 'contributors', label: 'المساهمون (اختياري)', type: 'multiselect', options: userOptions(state.users), hint: 'يرون المهمة ويعلّقون ويرفقون الملفات، والمسؤولية تبقى على المسؤول وحده.' },
       ]}
       transform={(v) => ({
@@ -86,7 +86,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       {isOwner && task.status === 'in_progress' && (
         <CommandButton
           command="task.block" base={base} label="تعطيل / بانتظار" variant="secondary" icon={<Pause size={14} />} success="سُجّل سبب التعطيل"
-          intro={<>مواعيد المتابعة لا تُلغى أثناء التعطيل <Rule>TK-05</Rule></>}
+          intro={<>مواعيد المتابعة لا تُلغى أثناء التعطيل</>}
           fields={[
             { name: 'type', label: 'نوع السبب', type: 'select', options: Object.entries(BLOCK_TYPES).map(([value, label]) => ({ value, label })) },
             { name: 'note', label: 'السبب', type: 'textarea', required: true },
@@ -114,7 +114,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       {canReassign && (
         <CommandButton
           command="task.reassign" base={base} label="تغيير المسؤول" variant="secondary" icon={<ArrowLeftRight size={14} />} success="تغيّر المسؤول وأُبلغ الطرفان"
-          intro={<>يُسجل من، إلى، السبب، التاريخ، ويُبلَّغ الطرفان، وتنتقل المتابعات المفتوحة <Rule>TK-08</Rule></>}
+          intro={<>يُسجل من، إلى، السبب، التاريخ، ويُبلَّغ الطرفان، وتنتقل المتابعات المفتوحة</>}
           fields={[
             { name: 'toId', label: 'المسؤول الجديد', type: 'select', options: userOptions(state.users, (u) => u.id !== task.ownerId) },
             { name: 'reason', label: 'السبب', type: 'textarea', required: true },
@@ -124,7 +124,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       {canReassign && (
         <CommandButton
           command="task.update" base={base} label="تعديل الموعد / الأولوية / المراجع / المساهمين" variant="secondary" success="عُدّلت المهمة وأُبلغ المعنيون"
-          intro={<>المسؤول لا يتغير هنا — استخدم «تغيير المسؤول» <Rule>TK-03</Rule></>}
+          intro={<>المسؤول لا يتغير هنا — استخدم «تغيير المسؤول»</>}
           fields={[
             { name: 'dueDate', label: 'الموعد', type: 'date', initial: task.dueDate },
             { name: 'priority', label: 'الأولوية', type: 'select', initial: task.priority, options: [{ value: 'low', label: 'منخفضة' }, { value: 'medium', label: 'متوسطة' }, { value: 'high', label: 'عالية' }] },
@@ -137,7 +137,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
       {canAttach && (
         <CommandButton
           command="task.attach" base={base} label="إرفاق ملفات" variant="secondary" icon={<Paperclip size={14} />} success="أُرفقت الملفات وأُبلغ المعنيون"
-          intro="تُحفظ المرفقات في Nextcloud ضمن مجلد السجل المرتبط، ويُسجَّل لكل ملف معرّفه ومن أرفقه ومتى (NX-04)."
+          intro="تُحفظ المرفقات في Nextcloud ضمن مجلد السجل المرتبط، ويُسجَّل لكل ملف معرّفه ومن أرفقه ومتى."
           fields={[{ name: 'files', label: 'أسماء الملفات (سطر لكل ملف)', type: 'lines', required: true, placeholder: `${task.id}-ملاحظات.pdf` }]}
         />
       )}
@@ -145,7 +145,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
         <CommandButton
           command="task.cancel" base={base} label="إلغاء" variant="secondary" icon={<Ban size={14} />} success="أُلغيت المهمة"
           fields={[{ name: 'reason', label: 'سبب الإلغاء الموثق', type: 'textarea', required: true }]}
-          intro={<Rule>TK-09</Rule>}
+          
         />
       )}
     </>
@@ -190,7 +190,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
           </Fact>
           <Fact label="المصدر">
             {SOURCE_NAMES[task.source]}
-            {task.dedupeKey && <span className="mt-0.5 block text-[11px] text-muted">مفتاح منع التكرار: <span className="ltr-iso">{task.dedupeKey}</span> <Rule>TK-11</Rule></span>}
+            {task.dedupeKey && <span className="mt-0.5 block text-[11px] text-muted">مفتاح منع التكرار: <span className="ltr-iso">{task.dedupeKey}</span></span>}
           </Fact>
           <Fact label="أُنشئت"><DateText iso={task.createdAt} time /></Fact>
           {task.contributors.length > 0 && <Fact label="المساهمون">{task.contributors.map((c) => userName(c)).join('، ')}</Fact>}
@@ -208,7 +208,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
 
         {task.escalations.length > 0 && (
           <section>
-            <h4 className="mb-2 text-sm font-semibold text-ink">التذكير والتصعيد <Rule>TK-05</Rule></h4>
+            <h4 className="mb-2 text-sm font-semibold text-ink">التذكير والتصعيد</h4>
             <ul className="space-y-1 text-sm">
               {task.escalations.map((e, i) => (
                 <li key={i} className="flex items-center gap-2 text-ink-2">
@@ -240,7 +240,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
 
         {task.reassignLog.length > 0 && (
           <section>
-            <h4 className="mb-2 text-sm font-semibold text-ink">سجل تغيير المسؤول <Rule>TK-08</Rule></h4>
+            <h4 className="mb-2 text-sm font-semibold text-ink">سجل تغيير المسؤول</h4>
             <Timeline items={task.reassignLog.map((r) => ({ at: r.at, title: <>من {userName(r.from)} إلى {userName(r.to)}</>, by: userName(r.by), note: r.reason }))} />
           </section>
         )}
@@ -266,7 +266,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId?: string | null; onClos
         </section>
 
         {!open && task.status === 'completed' && task.source === 'collection' && (
-          <p className="flex items-center gap-1 text-xs text-muted"><RotateCcw size={12} /> أُغلقت متابعة التحصيل بتأكيد المالية وحدها (DL-14).</p>
+          <p className="flex items-center gap-1 text-xs text-muted"><RotateCcw size={12} /> أُغلقت متابعة التحصيل بتأكيد المالية وحدها.</p>
         )}
       </div>
     </Drawer>

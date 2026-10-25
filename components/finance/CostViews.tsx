@@ -1,10 +1,11 @@
+import { Children } from 'react';
 import { Link } from 'react-router-dom';
 import { useLookup, useStore } from '../../app/store';
 import { fmtDate } from '../../domain/calendar';
 import { COST_STATES } from '../../domain/labels';
 import { allows } from '../../domain/permissions';
 import type { AppState, CostRequest, Project } from '../../domain/types';
-import { CommandButton, DateText, Drawer, Fact, Id, Money, Notice, Pill, Rule, StatePill, Table, Td, Timeline } from '../ui';
+import { CommandButton, DateText, Drawer, Fact, Money, Notice, Pill, StatePill, Table, Td, Timeline } from '../ui';
 
 export const COST_KINDS: Record<CostRequest['kind'], string> = { planned: 'مخططة', unplanned: 'غير مخططة', over_estimate: 'تجاوز تقدير' };
 const DECISIONS = { approved: 'اعتمد', returned: 'أعاد للاستكمال', rejected: 'رفض', resubmitted: 'أعاد التقديم' } as const;
@@ -50,7 +51,7 @@ export function CostDrawer({ project, id, onClose }: { project: Project; id?: st
       )}
       {project.pmId === me.id && ['approved', 'partially_paid', 'paid'].includes(c.status) && (
         <CommandButton command="cost.receive_service" base={base} variant="secondary" label="تسجيل استلام الخدمة"
-          intro="الاستلام ≠ الدفع: الدفعة المقدمة لا تغلق المتابعة، والاستلام لا يعني الصرف (AD-04)."
+          intro="سجّل ما استُلم فعليًا؛ الاستلام منفصل عن الصرف."
           fields={[{ name: 'note', label: 'ما استُلم', type: 'textarea', required: true }]} success="سُجّل الاستلام" />
       )}
     </>
@@ -62,23 +63,22 @@ export function CostDrawer({ project, id, onClose }: { project: Project; id?: st
       onClose={onClose}
       title={
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Id className="text-sm">{c.id}</Id>
+          <h2 className="text-lg font-semibold text-ink">{c.service}</h2>
+          <p className="text-xs text-muted"><span className="ltr-iso">{c.id}</span> · طلبه {userName(c.requestedBy)} · {fmtDate(c.requestedAt)}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatePill s={COST_STATES[c.status]} />
             <Pill tone={c.kind === 'planned' ? 'muted' : 'waiting'}>{COST_KINDS[c.kind]}</Pill>
           </div>
-          <h2 className="mt-1 text-base font-semibold text-ink">{c.service}</h2>
-          <p className="text-xs text-muted">طلبه {userName(c.requestedBy)} · {fmtDate(c.requestedAt)}</p>
         </div>
       }
-      actions={actions}
+      actions={Children.toArray(actions.props.children).length ? actions : undefined}
     >
       <div className="space-y-5">
-        {c.status === 'service_received' && remaining > 0 && <Notice tone="waiting">استُلمت الخدمة والمتبقي للصرف <Money v={remaining} /> — الاستلام ≠ الدفع.</Notice>}
-        {['approved', 'partially_paid', 'paid'].includes(c.status) && <Notice tone="progress">متابعة استلام الخدمة مفتوحة لدى مدير المشروع حتى يُسجّل الاستلام. <Rule>AD-04</Rule></Notice>}
-        <dl className="grid grid-cols-2 gap-3">
+        {c.status === 'service_received' && remaining > 0 && <Notice tone="waiting">استُلمت الخدمة، والمتبقي للصرف <Money v={remaining} />.</Notice>}
+        {['approved', 'partially_paid', 'paid'].includes(c.status) && <Notice tone="progress">بانتظار تسجيل استلام الخدمة من مدير المشروع.</Notice>}
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Fact label="المبلغ"><Money v={c.amount} /></Fact>
-          <Fact label="التقدير الأصلي">{c.plannedEstimate ? <><Money v={c.plannedEstimate} /> <span className={c.amount > c.plannedEstimate ? 'text-xs text-st-danger' : 'text-xs text-muted'}>(انحراف {(c.amount - c.plannedEstimate).toLocaleString('en')})</span></> : '—'}</Fact>
+          <Fact label="التقدير الأصلي">{c.plannedEstimate ? <><Money v={c.plannedEstimate} /> <span className={c.amount > c.plannedEstimate ? 'text-xs font-normal text-st-danger' : 'text-xs font-normal text-muted'}>(انحراف {(c.amount - c.plannedEstimate).toLocaleString('en')})</span></> : '—'}</Fact>
           <Fact label="المدفوع / المتبقي"><Money v={c.paid} /> / <Money v={remaining} /></Fact>
           <Fact label="البند / الخدمة">{item?.title ?? '—'}</Fact>
           <Fact label="الجهة المنفذة">{c.vendor}</Fact>
@@ -87,7 +87,7 @@ export function CostDrawer({ project, id, onClose }: { project: Project; id?: st
           <Fact label="من يتحمل / من يدفع">{c.bearer === 'abak' ? 'أباك' : 'العميل'} / {c.payer === 'abak' ? 'أباك' : 'العميل'}</Fact>
           <Fact label="السبب">{c.reason}</Fact>
           <Fact label="المبرر">{c.justification ?? '—'}</Fact>
-          {gov && <Fact label="رسوم معاملة"><Link className="text-brand-700 hover:underline" to={`/gov?id=${gov.id}`}>{gov.id} — {gov.authority}</Link></Fact>}
+          {gov && <Fact label="رسوم معاملة"><Link className="text-brand-700 hover:underline" to={`/gov?id=${gov.id}`}>{gov.authority} <span className="ltr-iso text-xs">{gov.id}</span></Link></Fact>}
           {c.serviceReceivedAt && <Fact label="استلام الخدمة"><DateText iso={c.serviceReceivedAt} /></Fact>}
         </dl>
         <section>
@@ -95,7 +95,7 @@ export function CostDrawer({ project, id, onClose }: { project: Project; id?: st
           <Timeline items={c.decisions.slice().reverse().map((d) => ({ at: d.at, by: userName(d.by), title: DECISIONS[d.decision], note: d.note }))} />
         </section>
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">الصرف (المالية)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-ink">الصرف</h3>
           {!c.payments.length ? <p className="text-sm text-muted">لم يُصرف شيء.</p> : (
             <Table head={['المبلغ', 'الإثبات', 'التاريخ', 'سجّله']}>
               {c.payments.map((p, i) => <tr key={i}><Td><Money v={p.amount} /></Td><Td><span className="ltr-iso">{p.proof}</span></Td><Td><DateText iso={p.at} /></Td><Td>{userName(p.by)}</Td></tr>)}

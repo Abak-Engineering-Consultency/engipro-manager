@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ChevronDown, PauseCircle, PlayCircle, Plus, Save, Trash2, XCircle } from 'lucide-react';
+import { CalendarClock, CheckCircle2, ChevronDown, CircleDashed, GanttChartSquare, MapPin, PauseCircle, PlayCircle, Plus, Save, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useLookup, useStore } from '../../app/store';
 import { dateKey, fmtShort, isAfter, isWorkingDay, weekday } from '../../domain/calendar';
 import { deptName, PLAN_TEMPLATES } from '../../domain/catalog';
@@ -9,7 +9,7 @@ import { allows } from '../../domain/permissions';
 import { schedulePhases } from '../../domain/schedule';
 import type { AppState, Phase, PlanTask, Project } from '../../domain/types';
 import {
-  Button, Card, cn, CommandButton, DateText, Empty, Input, Notice, Pill, Rule, Select, StatePill, Timeline, userOptions,
+  Button, Card, cn, CommandButton, DateText, Empty, Input, Notice, Pill, Select, StatePill, Timeline, userOptions,
 } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
 
@@ -26,10 +26,10 @@ export const PlanTab: React.FC<TabProps> = ({ project: p }) => {
     return <Empty title="التجهيز يبدأ بعد اعتماد مدير المشروع" hint="مدير الأقسام يستلم المشروع، ومدير القسم الرئيسي يرشّح، ومدير الأقسام يعتمد — ثم يجهّز مدير المشروع المواقع والخطة." />;
   }
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {p.status === 'preparing' && <StartGateCard p={p} canRun={canRun} />}
       {p.startedAt && <ExecutionCard p={p} canRun={canRun} />}
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <SitesCard p={p} canPrepare={canPrepare} canRun={canRun} />
         <KickoffCard p={p} canPrepare={canPrepare} />
       </div>
@@ -63,27 +63,30 @@ function StartGateCard({ p, canRun }: { p: Project; canRun: boolean }) {
   const met = checks.every((c) => c.ok);
   return (
     <Card
-      title={<span className="flex items-center gap-2">بوابة البدء <Rule>PJ-09</Rule> <Rule>F5</Rule></span>}
-      subtitle="يتحقق المحرك من البوابة عند الضغط؛ إن لم تُستوفَ يُرفض البدء ويظهر السبب في شريط المشروع (AC-02)"
+      title="بوابة البدء"
+      icon={<ShieldCheck size={18} />}
+      subtitle={met ? 'كل الشروط مستوفاة' : `${checks.filter((c) => !c.ok).length} من ${checks.length} شروط غير مستوفاة`}
       actions={canRun && (
         <CommandButton command="project.start" base={{ projectId: p.id }} label="بدء التنفيذ" size="md" variant={met ? 'primary' : 'secondary'} icon={<PlayCircle size={16} />}
           success="بدأ التنفيذ — المخرجات قيد الإعداد، والمعاملات أُنشئت من قوالب الخدمات، والدفعة المقدمة مستحقة" />
       )}
     >
-      <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+      <ul className="grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-5">
         {checks.map((c) => (
-          <li key={c.label} className={cn('rounded-md border px-3 py-2', c.ok ? 'border-st-success/30 bg-st-success-bg' : 'border-st-waiting/30 bg-st-waiting-bg')}>
-            <p className={cn('flex items-center gap-1.5 text-sm font-medium', c.ok ? 'text-st-success' : 'text-st-waiting')}>
-              {c.ok ? <CheckCircle2 size={15} /> : <XCircle size={15} />} {c.label}
-            </p>
-            <p className="mt-0.5 text-xs text-ink-2">
-              {c.detail}
-              {c.tab && !c.ok && <> — <Link className="text-brand-700 underline" to={`/projects/${p.id}?tab=${c.tab}`}>اذهب</Link></>}
-            </p>
+          <li key={c.label} className="flex items-start gap-2.5">
+            {c.ok
+              ? <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-st-success" aria-label="مستوفى" />
+              : <CircleDashed size={18} className="mt-0.5 shrink-0 text-st-waiting" aria-label="غير مستوفى" />}
+            <div className="min-w-0">
+              <p className={cn('text-sm font-medium', c.ok ? 'text-ink' : 'text-st-waiting')}>{c.label}</p>
+              <p className="text-xs text-muted">
+                {c.detail}
+                {c.tab && !c.ok && <> · <Link className="font-medium text-brand-700 hover:underline" to={`/projects/${p.id}?tab=${c.tab}`}>اذهب</Link></>}
+              </p>
+            </div>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-xs text-muted">البدء لا يعني تأكيد التحصيل (PJ-10).</p>
     </Card>
   );
 }
@@ -98,8 +101,8 @@ function ExecutionCard({ p, canRun }: { p: Project; canRun: boolean }) {
   ].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
   return (
     <Card
-      title={<span className="flex items-center gap-2">التنفيذ والمواعيد <Rule>PJ-12</Rule> <Rule>SC-01</Rule></span>}
-      subtitle="الموعد التعاقدي الأصلي لا يتغير؛ المتوقع يتغير بسبب موثق والتأخر ظاهر. التمديد التعاقدي فقط باتفاق"
+      title="التنفيذ والمواعيد"
+      icon={<CalendarClock size={18} />}
       actions={canRun && (
         <>
           {p.status === 'in_progress' && (
@@ -122,15 +125,15 @@ function ExecutionCard({ p, canRun }: { p: Project; canRun: boolean }) {
         </>
       )}
     >
-      <div className="grid gap-4 md:grid-cols-[1fr_1.5fr]">
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          <div><dt className="text-xs text-muted">بدء التنفيذ</dt><dd><DateText iso={p.startedAt} /></dd></div>
-          <div><dt className="text-xs text-muted">الموعد التعاقدي (الأصلي)</dt><dd><DateText iso={p.contractEndDate} /></dd></div>
-          <div><dt className="text-xs text-muted">الموعد المتوقع</dt><dd className={cn(p.expectedEndDate && p.contractEndDate && Date.parse(p.expectedEndDate) > Date.parse(p.contractEndDate) && 'text-st-waiting')}><DateText iso={p.expectedEndDate} /></dd></div>
-          <div><dt className="text-xs text-muted">نوع الأيام</dt><dd>{p.dayType === 'working' ? 'أيام عمل' : 'أيام تقويمية'}</dd></div>
+      <div className="grid gap-6 md:grid-cols-[1fr_1.5fr]">
+        <dl className="grid grid-cols-2 content-start gap-x-4 gap-y-4 text-sm">
+          <div><dt className="text-xs text-muted">بدء التنفيذ</dt><dd className="mt-0.5 font-medium text-ink"><DateText iso={p.startedAt} /></dd></div>
+          <div><dt className="text-xs text-muted">الموعد التعاقدي (الأصلي)</dt><dd className="mt-0.5 font-medium text-ink"><DateText iso={p.contractEndDate} /></dd></div>
+          <div><dt className="text-xs text-muted">الموعد المتوقع</dt><dd className={cn('mt-0.5 font-medium text-ink', p.expectedEndDate && p.contractEndDate && Date.parse(p.expectedEndDate) > Date.parse(p.contractEndDate) && 'text-st-waiting')}><DateText iso={p.expectedEndDate} /></dd></div>
+          <div><dt className="text-xs text-muted">نوع الأيام</dt><dd className="mt-0.5 font-medium text-ink">{p.dayType === 'working' ? 'أيام عمل' : 'أيام تقويمية'}</dd></div>
         </dl>
         <div>
-          <p className="mb-2 text-xs text-muted">سجل تغييرات المواعيد والتعليق</p>
+          <h4 className="mb-3 text-sm font-semibold text-ink">سجل تغييرات المواعيد والتعليق</h4>
           <Timeline items={items} />
         </div>
       </div>
@@ -138,7 +141,7 @@ function ExecutionCard({ p, canRun }: { p: Project; canRun: boolean }) {
   );
 }
 
-// ── Sites and day type (PJ-06, journey 6) ──────────────────────────────────────
+// ── Sites and day type ─────────────────────────────────────────────────────────
 
 function SitesCard({ p, canPrepare, canRun }: { p: Project; canPrepare: boolean; canRun: boolean }) {
   const { state, dispatch } = useStore();
@@ -146,16 +149,16 @@ function SitesCard({ p, canPrepare, canRun }: { p: Project; canPrepare: boolean;
   const editableItems = canPrepare && ['preparing', 'in_progress'].includes(p.status);
   return (
     <Card
-      title={<span className="flex items-center gap-2">المواقع ونوع الأيام <Rule>PJ-06</Rule></span>}
-      subtitle="أعمال مشتركة أو خاصة بموقع؛ تعليق موقع لا يعلّق بقية المواقع"
+      title="المواقع ونوع الأيام"
+      icon={<MapPin size={18} />}
       actions={canPrepare && (
         <CommandButton command="project.add_site" base={{ projectId: p.id }} label="إضافة موقع" variant="secondary" icon={<Plus size={14} />} success="أُضيف الموقع"
           fields={[{ name: 'name', label: 'اسم الموقع', type: 'text', required: true }, { name: 'city', label: 'المدينة', type: 'text', initial: client(p.clientId)?.city ?? '' }]} />
       )}
     >
-      <ul className="space-y-2">
+      <ul className="divide-y divide-line">
         {p.sites.map((s) => (
-          <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line px-3 py-2">
+          <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0">
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">{s.name} <span className="text-xs text-muted">· {s.city}</span></p>
               <p className="text-xs text-muted">
@@ -173,9 +176,9 @@ function SitesCard({ p, canPrepare, canRun }: { p: Project; canPrepare: boolean;
         ))}
       </ul>
 
-      <div className="mt-3 border-t border-line pt-3">
-        <p className="mb-1 text-xs text-muted">بنود النطاق والمواقع</p>
-        <ul className="space-y-1">
+      <div className="mt-4 border-t border-line pt-4">
+        <h4 className="mb-2 text-sm font-semibold text-ink">بنود النطاق والمواقع</h4>
+        <ul className="space-y-2">
           {p.scopeItems.map((i) => (
             <li key={i.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="min-w-0 truncate">{i.title} <span className="text-[11px] text-muted">· {deptName(i.deptCode)}</span></span>
@@ -190,16 +193,16 @@ function SitesCard({ p, canPrepare, canRun }: { p: Project; canPrepare: boolean;
         </ul>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
         <div>
-          <p className="text-xs text-muted">نوع الأيام حسب العقد <Rule>D07</Rule></p>
-          <p className="text-sm text-ink">{p.dayType === 'working' ? 'أيام عمل — الأحد إلى الخميس مع الإجازات الرسمية' : 'أيام تقويمية'}</p>
+          <p className="text-xs text-muted">نوع الأيام حسب العقد</p>
+          <p className="mt-0.5 text-sm font-medium text-ink">{p.dayType === 'working' ? 'أيام عمل — الأحد إلى الخميس مع الإجازات الرسمية' : 'أيام تقويمية'}</p>
         </div>
         {canPrepare && p.status === 'preparing' && (
-          <div className="flex rounded-md border border-line p-0.5">
+          <div className="flex rounded-lg border border-line bg-sunken p-1" role="group" aria-label="نوع الأيام">
             {(['working', 'calendar'] as const).map((t) => (
-              <button key={t} onClick={() => dispatch('project.set_day_type', { projectId: p.id, dayType: t }, 'حُدّث نوع الأيام')}
-                className={cn('rounded px-2.5 py-1 text-xs', p.dayType === t ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-sunken')}>
+              <button key={t} aria-pressed={p.dayType === t} onClick={() => dispatch('project.set_day_type', { projectId: p.id, dayType: t }, 'حُدّث نوع الأيام')}
+                className={cn('rounded-md px-3 py-1 text-xs font-medium transition-all', p.dayType === t ? 'bg-card text-brand-700 shadow-sm' : 'text-muted hover:text-ink')}>
                 {t === 'working' ? 'أيام عمل' : 'تقويمية'}
               </button>
             ))}
@@ -225,8 +228,9 @@ function KickoffCard({ p, canPrepare }: { p: Project; canPrepare: boolean }) {
   ];
   return (
     <Card
-      title={<span className="flex items-center gap-2">الاجتماع الافتتاحي <Rule>PJ-08</Rule></span>}
-      subtitle={p.kickoff.required ? 'إلزامي بحسب العقد — شرط في بوابة البدء' : 'حسب الحاجة'}
+      title="الاجتماع الافتتاحي"
+      icon={<Users size={18} />}
+      subtitle={p.kickoff.required ? 'إلزامي بحسب العقد' : 'حسب الحاجة'}
       actions={canPrepare && !['operationally_closed', 'cancelled'].includes(p.status) && (
         <CommandButton
           command="project.hold_kickoff" base={{ projectId: p.id }} label={p.kickoff.status === 'held' ? 'تحديث المحضر' : 'تسجيل الاجتماع'} variant={p.kickoff.status === 'held' ? 'secondary' : 'primary'}
@@ -246,11 +250,13 @@ function KickoffCard({ p, canPrepare }: { p: Project; canPrepare: boolean }) {
       )}
     >
       {p.kickoff.status === 'held' ? (
-        <div className="space-y-2 text-sm">
+        <div className="space-y-4 text-sm">
           <p className="text-xs text-muted">عُقد في <DateText iso={p.kickoff.heldAt} time /> · الحضور: {(p.kickoff.attendees ?? []).map((id) => userName(id)).join('، ') || '—'}</p>
-          <p className="whitespace-pre-line rounded-md bg-page px-3 py-2 text-ink-2">{p.kickoff.minutes}</p>
+          <p className="whitespace-pre-line rounded-lg bg-page px-4 py-3 text-ink-2">{p.kickoff.minutes}</p>
           {tasks.length > 0 && (
-            <ul className="space-y-1">
+            <div>
+            <h4 className="mb-2 text-sm font-semibold text-ink">الإجراءات المتولدة</h4>
+            <ul className="space-y-2">
               {tasks.map((t) => (
                 <li key={t.id} className="flex items-center justify-between gap-2">
                   <Link to={`/work?task=${t.id}`} className="truncate text-brand-700 hover:underline">{t.title}</Link>
@@ -258,6 +264,7 @@ function KickoffCard({ p, canPrepare }: { p: Project; canPrepare: boolean }) {
                 </li>
               ))}
             </ul>
+            </div>
           )}
         </div>
       ) : (
@@ -301,8 +308,9 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
 
   return (
     <Card
-      title={<span className="flex items-center gap-2">خطة التنفيذ <Rule>PJ-06</Rule> <Rule>SC-01</Rule></span>}
-      subtitle="من قالب قابل للتعديل أو من بنود العرض أو يدويًا — القوالب لا تغيّر النطاق التعاقدي. المدد بنوع أيام العقد"
+      title="خطة التنفيذ"
+      icon={<GanttChartSquare size={18} />}
+      subtitle={`المدد ب${p.dayType === 'working' ? 'أيام العمل' : 'الأيام التقويمية'}`}
       actions={canEdit && (
         <>
           <CommandButton command="project.apply_template" base={{ projectId: p.id }} label="من قالب" variant="secondary" success="أُضيفت مراحل القالب"
@@ -321,11 +329,11 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
         <div className="space-y-4">
           {dirty && <Notice tone="waiting">تعديلات غير محفوظة — الجدول الزمني أدناه محسوب منها.</Notice>}
           {draft.map((ph) => (
-            <div key={ph.id} className="overflow-hidden rounded-md border border-line">
-              <div className="flex flex-wrap items-center gap-2 bg-page px-3 py-2">
+            <div key={ph.id} className="overflow-hidden rounded-lg border border-line">
+              <div className="flex flex-wrap items-center gap-3 bg-page px-4 py-2.5">
                 {canEdit ? (
                   <Input className="h-8 max-w-xs py-0 font-medium" value={ph.name} onChange={(e) => setDraft((d) => d.map((x) => (x.id === ph.id ? { ...x, name: e.target.value } : x)))} />
-                ) : <p className="font-medium text-ink">{ph.name}</p>}
+                ) : <p className="font-semibold text-ink">{ph.name}</p>}
                 {ph.siteId && <Pill tone="brand">{p.sites.find((s) => s.id === ph.siteId)?.name}</Pill>}
                 <span className="text-xs text-muted">{ph.tasks.length} مهمة</span>
                 {canEdit && (
@@ -339,13 +347,13 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-t border-line text-xs text-muted">
-                      {started && <th className="w-10 px-2 py-1.5 text-start font-medium">منجز</th>}
-                      <th className="px-2 py-1.5 text-start font-medium">المهمة</th>
-                      <th className="px-2 py-1.5 text-start font-medium">البند</th>
-                      <th className="px-2 py-1.5 text-start font-medium">المسؤول</th>
-                      <th className="w-20 px-2 py-1.5 text-start font-medium">المدة</th>
-                      <th className="px-2 py-1.5 text-start font-medium">تعتمد على</th>
-                      <th className="px-2 py-1.5 text-start font-medium">البداية ← النهاية</th>
+                      {started && <th className="w-10 px-3 py-2 text-start font-medium">منجز</th>}
+                      <th className="px-3 py-2 text-start font-medium">المهمة</th>
+                      <th className="px-3 py-2 text-start font-medium">البند</th>
+                      <th className="px-3 py-2 text-start font-medium">المسؤول</th>
+                      <th className="w-20 px-3 py-2 text-start font-medium">المدة</th>
+                      <th className="px-3 py-2 text-start font-medium">تعتمد على</th>
+                      <th className="px-3 py-2 text-start font-medium">البداية ← النهاية</th>
                       {canEdit && <th className="w-8" />}
                     </tr>
                   </thead>
@@ -355,12 +363,12 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
                       return (
                         <tr key={t.id} className="border-t border-line">
                           {started && (
-                            <td className="px-2 py-1.5"><input type="checkbox" className="accent-brand-600" disabled={!canEdit} checked={t.done} onChange={(e) => setTask(ph.id, t.id, { done: e.target.checked })} /></td>
+                            <td className="px-3 py-2"><input type="checkbox" className="accent-brand-600" disabled={!canEdit} checked={t.done} onChange={(e) => setTask(ph.id, t.id, { done: e.target.checked })} /></td>
                           )}
-                          <td className="px-2 py-1.5">
+                          <td className="px-3 py-2">
                             {canEdit ? <Input className="h-8 min-w-[180px] py-0" value={t.name} onChange={(e) => setTask(ph.id, t.id, { name: e.target.value })} /> : <span className={cn(t.done && 'text-muted line-through')}>{t.name}</span>}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-3 py-2">
                             {canEdit ? (
                               <Select className="h-8 min-w-[150px] py-0 text-xs" value={t.scopeItemId ?? ''} onChange={(e) => setTask(ph.id, t.id, { scopeItemId: e.target.value || undefined })}>
                                 <option value="">—</option>
@@ -368,7 +376,7 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
                               </Select>
                             ) : <span className="text-xs text-ink-2">{p.scopeItems.find((i) => i.id === t.scopeItemId)?.title ?? '—'}</span>}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-3 py-2">
                             {canEdit ? (
                               <Select className="h-8 min-w-[140px] py-0 text-xs" value={t.ownerId ?? ''} onChange={(e) => setTask(ph.id, t.id, { ownerId: e.target.value || undefined })}>
                                 <option value="">—</option>
@@ -376,13 +384,13 @@ function PlanEditor({ p, canEdit }: { p: Project; canEdit: boolean }) {
                               </Select>
                             ) : <span className="text-xs text-ink-2">{state.users.find((u) => u.id === t.ownerId)?.name ?? '—'}</span>}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-3 py-2">
                             {canEdit ? <Input type="number" min={1} dir="ltr" className="h-8 w-16 py-0" value={t.duration} onChange={(e) => setTask(ph.id, t.id, { duration: Math.max(1, Number(e.target.value) || 1) })} /> : <span className="tabular">{t.duration}</span>}
                           </td>
-                          <td className="px-2 py-1.5">
+                          <td className="px-3 py-2">
                             <DepsPicker task={t} all={allTasks} disabled={!canEdit} onChange={(deps) => setTask(ph.id, t.id, { dependencies: deps })} />
                           </td>
-                          <td className="whitespace-nowrap px-2 py-1.5 text-xs text-ink-2 tabular">{fmtShort(sc?.startDate)} ← {fmtShort(sc?.endDate)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-2 tabular">{fmtShort(sc?.startDate)} ← {fmtShort(sc?.endDate)}</td>
                           {canEdit && (
                             <td className="px-1 py-1.5">
                               <button onClick={() => removeTask(t.id)} className="rounded p-1 text-faint hover:bg-sunken hover:text-st-danger" aria-label="حذف المهمة"><Trash2 size={14} /></button>
@@ -453,9 +461,9 @@ function Gantt({ phases, p }: { phases: Phase[]; p: Project }) {
   const holidays = new Set(state.settings.holidays.map((h) => h.date));
 
   return (
-    <div className="rounded-md border border-line">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-page px-3 py-2">
-        <p className="text-sm font-medium text-ink">الجدول الزمني ({p.dayType === 'working' ? 'أيام عمل' : 'أيام تقويمية'}){!p.startedAt && ' — محسوب من اليوم حتى البدء'}</p>
+    <div className="overflow-hidden rounded-lg border border-line">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-page px-4 py-2.5">
+        <p className="text-sm font-semibold text-ink">الجدول الزمني ({p.dayType === 'working' ? 'أيام عمل' : 'أيام تقويمية'}){!p.startedAt && ' — محسوب من اليوم حتى البدء'}</p>
         <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted">
           <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-brand-500" /> مهمة</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-4 rounded-sm bg-st-success" /> منجزة</span>

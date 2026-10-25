@@ -1,19 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { CalendarDays, CalendarRange, ClipboardCheck, FileCheck2 } from 'lucide-react';
 import { useLookup, useStore } from '../app/store';
 import { addCalendarDays, dateKey, fmtDateTime, weekday } from '../domain/calendar';
 import { visitTypeName } from '../domain/catalog';
 import { VISIT_BILLING, VISIT_STATES } from '../domain/labels';
 import { allows } from '../domain/permissions';
 import type { VisitState } from '../domain/types';
-import { Card, cn, Empty, Id, Kpi, PageHeader, Pill, Rule, Select, StatePill, Table, Tabs, Td } from '../components/ui';
+import { Card, Empty, Id, Kpi, PageHeader, Select, StatePill, Table, Tabs, Td } from '../components/ui';
 import { ScheduleVisitButton, VisitCard, WeekView, isMine } from '../components/visits/VisitParts';
 import { VisitDrawer } from '../components/visits/VisitDrawer';
 import { RECORD_TYPE_NAMES } from '../components/work/records';
 
 type Scope = 'mine' | 'all';
 
-/** VS-09 — «زياراتي»: today, the week, and every visit with its state; mobile-friendly cards. */
+/** «زياراتي»: what needs me, today, the week, and every visit with its state; mobile-friendly cards. */
 export const Visits: React.FC = () => {
   const { state, me } = useStore();
   const { userName } = useLookup();
@@ -47,45 +48,43 @@ export const Visits: React.FC = () => {
   const all = visits.filter((v) => !status || v.status === status).sort((a, b) => b.plannedStart.localeCompare(a.plannedStart));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="الزيارات"
-        subtitle={<>سجل واحد للزيارة عبر المبيعات والتنفيذ والجهات: جدولة وتأكيد وتسجيل وصول وتوثيق وتقرير <Rule>VS-09</Rule> <Rule>D12</Rule></>}
+        subtitle={<>هذا الأسبوع: <span className="font-semibold text-ink">{weekVisits.length}</span> زيارة</>}
         actions={<ScheduleVisitButton onCreated={open} />}
       />
 
       {canAll && (
-        <div className="-mt-2">
-          <Tabs<Scope> tabs={[{ id: 'mine', label: 'زياراتي' }, { id: 'all', label: 'كل الزيارات' }]} value={scope} onChange={setScope} />
-        </div>
+        <Tabs<Scope> tabs={[{ id: 'mine', label: 'زياراتي' }, { id: 'all', label: 'كل الزيارات' }]} value={scope} onChange={setScope} />
       )}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="اليوم" value={todays.length} />
-        <Kpi label="هذا الأسبوع" value={weekVisits.length} />
-        <Kpi label="بانتظار تأكيدي / توثيقي" value={toConfirm.length + toDocument.length} tone={toConfirm.length + toDocument.length ? 'waiting' : undefined} />
-        <Kpi label="تقارير بانتظار اعتمادي" value={myReports.length} tone={myReports.length ? 'waiting' : undefined} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi label="اليوم" value={todays.length} icon={<CalendarDays size={20} />} />
+        <Kpi label="هذا الأسبوع" value={weekVisits.length} icon={<CalendarRange size={20} />} />
+        <Kpi label="بانتظار تأكيدي / توثيقي" value={toConfirm.length + toDocument.length} icon={<ClipboardCheck size={20} />} tone={toConfirm.length + toDocument.length ? 'waiting' : undefined} />
+        <Kpi label="تقارير بانتظار اعتمادي" value={myReports.length} icon={<FileCheck2 size={20} />} tone={myReports.length ? 'waiting' : undefined} />
       </div>
 
       {(myReports.length > 0 || toDocument.length > 0) && (
-        <Card title="تحتاج إجراءً منك">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <Card title="تحتاج إجراءً منك" subtitle={`${myReports.length + toDocument.length} زيارة`}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {[...myReports, ...toDocument].map((v) => <VisitCard key={v.id} visit={v} onOpen={open} />)}
           </div>
         </Card>
       )}
 
-      <Card title={`اليوم — ${todays.length} زيارة`} subtitle="قائمة يومية: تأكيد، تسجيل وصول، تنفيذ أو تعذّر، ورفع التقرير">
+      <Card title="اليوم" subtitle={todays.length ? `${todays.length} زيارة` : undefined}>
         {todays.length ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {todays.map((v) => <VisitCard key={v.id} visit={v} onOpen={open} />)}
           </div>
         ) : (
-          <Empty title="لا زيارات اليوم" hint="قدّم تاريخ النموذج من أعلى الشاشة (+يوم) لترى زيارات الغد." />
+          <p className="text-sm text-muted">لا زيارات اليوم.</p>
         )}
       </Card>
 
-      <Card title="الأسبوع" subtitle="عرض أسبوعي بسيط من الأحد إلى السبت — تنبيه التعارض يظهر عند الجدولة (VS-02)">
+      <Card title="الأسبوع">
         <WeekView visits={weekVisits} now={state.now} onOpen={open} />
       </Card>
 
@@ -93,7 +92,7 @@ export const Visits: React.FC = () => {
         title="كل الزيارات"
         pad={false}
         actions={
-          <Select value={status} onChange={(e) => setStatus(e.target.value as VisitState | '')} className="!h-8 !w-auto !py-0 text-xs">
+          <Select value={status} onChange={(e) => setStatus(e.target.value as VisitState | '')} className="!w-auto" aria-label="الحالة">
             <option value="">كل الحالات</option>
             {Object.entries(VISIT_STATES).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
           </Select>
@@ -102,25 +101,25 @@ export const Visits: React.FC = () => {
         <div className="hidden md:block">
           <Table head={['الزيارة', 'النوع', 'مرتبطة بـ', 'الموعد المخطط', 'المسؤول', 'الفوترة', 'الحالة']} empty={<Empty title="لا توجد زيارات" />}>
             {all.map((v) => (
-              <tr key={v.id} className="cursor-pointer hover:bg-sunken" onClick={() => open(v.id)}>
+              <tr key={v.id} className="cursor-pointer hover:bg-page" onClick={() => open(v.id)}>
                 <Td>
                   <p className="font-medium text-ink">{v.purpose}</p>
                   <Id>{v.id}</Id>
                 </Td>
-                <Td>{visitTypeName(v.type)}</Td>
+                <Td className="text-sm text-ink-2">{visitTypeName(v.type)}</Td>
                 <Td><span className="text-xs text-ink-2">{v.link ? `${RECORD_TYPE_NAMES[v.link.type]}: ${v.link.label}` : '—'}</span></Td>
                 <Td><span className="whitespace-nowrap text-xs tabular">{fmtDateTime(v.plannedStart)}</span></Td>
-                <Td><span className="text-xs">{userName(v.ownerId)}</span></Td>
+                <Td className="whitespace-nowrap text-sm text-ink-2">{userName(v.ownerId)}</Td>
                 <Td>
-                  <span className={cn('text-xs', v.billing === 'billable' ? 'text-st-waiting' : 'text-muted')}>{VISIT_BILLING[v.billing]}</span>
-                  {v.claimId && <Pill tone="success" className="ms-1">{v.claimId}</Pill>}
+                  <span className="text-xs text-muted">{VISIT_BILLING[v.billing]}</span>
+                  {v.claimId && <span className="block text-xs text-st-success">طولب بها · <span className="ltr-iso">{v.claimId}</span></span>}
                 </Td>
                 <Td><StatePill s={VISIT_STATES[v.status]} /></Td>
               </tr>
             ))}
           </Table>
         </div>
-        <div className="grid grid-cols-1 gap-3 p-3 md:hidden">
+        <div className="grid grid-cols-1 gap-3 p-4 md:hidden">
           {all.map((v) => <VisitCard key={v.id} visit={v} onOpen={open} />)}
           {!all.length && <Empty title="لا توجد زيارات" />}
         </div>

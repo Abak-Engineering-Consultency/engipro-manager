@@ -7,7 +7,7 @@ import { allows, holds } from '../../domain/permissions';
 import { exceptionScope, govTimes, oppOwner } from '../../domain/selectors';
 import type { AppState, GovRound, GovTransaction, User } from '../../domain/types';
 import {
-  CommandButton, DateText, Drawer, Empty, Fact, Id, Money, Notice, Pill, Rule, StatePill, Table, Td, Timeline, cn, userOptions,
+  CommandButton, DateText, Drawer, Empty, Fact, Id, Money, Notice, Pill, StatePill, Table, Td, Timeline, cn, userOptions,
 } from '../ui';
 
 const OUTCOMES: Record<NonNullable<GovRound['outcome']>, { label: string; tone: 'waiting' | 'danger' | 'success' }> = {
@@ -20,14 +20,14 @@ const OUTCOMES: Record<NonNullable<GovRound['outcome']>, { label: string; tone: 
 const DAY = 86_400_000;
 const span = (a?: string, b?: string, now?: string) => (a ? Math.floor((Date.parse(b ?? now ?? a) - Date.parse(a)) / DAY) : undefined);
 
-/** The expeditor's next mandatory weekly update (GT-08), and whether it is late. */
+/** The expeditor's next mandatory weekly update, and whether it is late. */
 export function weeklyUpdate(s: AppState, g: GovTransaction) {
   if (g.status !== 'at_authority' || !g.lastUpdateAt) return { next: undefined, late: false };
   const next = addCalendarDays(g.lastUpdateAt, s.settings.expeditorUpdateDays);
   return { next, late: Date.parse(next) <= Date.parse(s.now) };
 }
 
-/** Who may see which transactions: project access, or the transaction roles (OD-01 direct grants). */
+/** Who may see which transactions: project access, or the transaction roles (direct grants). */
 export function visibleGov(s: AppState, me: User, projectVisible: (pid: string) => boolean) {
   const all = holds(me, 'gov_transaction.assign') || allows(me, 'gov_transaction.prepare', { depts: ['LIC'] });
   return s.gov.filter((g) => all || g.licensingOfficerId === me.id || g.expeditorId === me.id || projectVisible(g.projectId));
@@ -36,24 +36,23 @@ export function visibleGov(s: AppState, me: User, projectVisible: (pid: string) 
 export function GovTable({ items, onOpen, showProject = true }: { items: GovTransaction[]; onOpen: (id: string) => void; showProject?: boolean }) {
   const { state } = useStore();
   const { userName, project } = useLookup();
-  if (!items.length) return <Empty icon={<Landmark size={28} />} title="لا توجد معاملات حكومية" hint="تُنشأ المعاملة آليًا عند بدء التنفيذ لكل بند يتطلب إجراءً حكوميًا من قالب الخدمة المعتمد (GT-01)." />;
+  if (!items.length) return <Empty icon={<Landmark size={28} />} title="لا توجد معاملات حكومية" hint="تُنشأ المعاملة تلقائيًا عند بدء التنفيذ لكل بند يتطلب إجراءً حكوميًا." />;
   return (
-    <Table head={['المعاملة', ...(showProject ? ['المشروع'] : []), 'الجهة والمنصة', 'الحالة', 'الجولة / رقم الطلب', 'المعقّب', 'التحديث الأسبوعي', 'وقت المكتب / الجهة']}>
+    <Table head={['المعاملة', ...(showProject ? ['المشروع'] : []), 'الجهة', 'الحالة', 'الجولة / رقم الطلب', 'المعقّب', 'التحديث الأسبوعي', 'المكتب / الجهة']}>
       {items.map((g) => {
         const t = govTimes(state.now, g);
         const r = g.rounds[g.rounds.length - 1];
         const wu = weeklyUpdate(state, g);
         return (
-          <tr key={g.id} className="cursor-pointer hover:bg-sunken" onClick={() => onOpen(g.id)}>
+          <tr key={g.id} className="cursor-pointer hover:bg-page" onClick={() => onOpen(g.id)}>
             <Td>
-              <Id>{g.id}</Id>
               <p className="text-sm font-medium text-ink">{g.procedureType}</p>
-              <p className="text-xs text-muted">{g.title}</p>
+              <p className="text-xs text-muted">{g.title} · <span className="ltr-iso">{g.id}</span></p>
             </Td>
             {showProject && (
               <Td>
+                <p className="max-w-[220px] truncate text-sm text-ink-2">{project(g.projectId)?.title}</p>
                 <Id>{g.projectId}</Id>
-                <p className="max-w-[220px] truncate text-xs text-muted">{project(g.projectId)?.title}</p>
               </Td>
             )}
             <Td>
@@ -80,7 +79,7 @@ export function GovTable({ items, onOpen, showProject = true }: { items: GovTran
             </Td>
             <Td>
               <span className="text-sm tabular">{t.office} / {t.authority} يوم</span>
-              {t.waitingNow > 0 && <p className="text-xs text-st-progress">لدى الجهة الآن {t.waitingNow} يوم</p>}
+              {t.waitingNow > 0 && <p className="text-xs text-muted">لدى الجهة الآن {t.waitingNow} يوم</p>}
             </Td>
           </tr>
         );
@@ -112,7 +111,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
   const actions = (
     <>
       {isOfficer && g.status === 'preparing' && missing.length > 0 && (
-        <CommandButton command="gov.request_client_docs" base={base} variant="secondary" label="طلب المستندات من العميل" title="طلب المستندات عبر مسؤول الفرصة (GT-03)"
+        <CommandButton command="gov.request_client_docs" base={base} variant="secondary" label="طلب المستندات من العميل" title="طلب المستندات عبر مسؤول الفرصة"
           intro={<>يُبلَّغ مسؤول الفرصة بطلب: {missing.map((d) => d.name).join('، ')}</>}
           fields={[{ name: 'note', label: 'ملاحظة', type: 'textarea' }]} success="أُرسل الطلب لمسؤول الفرصة" />
       )}
@@ -121,7 +120,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
       )}
       {isOfficer && ['preparing', 'comments_processing'].includes(g.status) && (
         <CommandButton command="gov.submit" base={base} label={g.rounds.length ? `إعادة التقديم — جولة ${g.rounds.length + 1}` : 'تقديم على المنصة — جولة 1'}
-          intro={<>الرسوم على العميل أصلًا؛ دفع أباك استثنائيًا يمر بطلب تكلفة إلى مدير الأقسام ثم المالية (GT-05).{proj && exceptionScope(state, proj).active && ' المشروع باستثناء الرئيس التنفيذي: لا تُقدَّم إلا معاملات البنود المسموحة قبل الاعتماد المالي (F15).'}</>}
+          intro={<>الرسوم على العميل أصلًا؛ دفع أباك استثنائيًا يمر بطلب تكلفة إلى مدير الأقسام ثم المالية.{proj && exceptionScope(state, proj).active && ' المشروع باستثناء الرئيس التنفيذي: لا تُقدَّم إلا معاملات البنود المسموحة قبل الاعتماد المالي.'}</>}
           fields={[
             { name: 'requestNo', label: 'رقم الطلب في المنصة', type: 'text', required: true, initial: g.rounds.at(-1)?.requestNo ?? '' },
             { name: 'feeInvoiceChecked', label: 'تم التحقق من فاتورة الرسوم', type: 'checkbox', initial: true },
@@ -141,7 +140,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
           success="أُسندت المتابعة" />
       )}
       {isExpeditor && g.status === 'at_authority' && (
-        <CommandButton command="gov.follow_up" base={base} label="تحديث المتابعة الأسبوعي" title="متابعة لدى الجهة (GT-08)"
+        <CommandButton command="gov.follow_up" base={base} label="تحديث المتابعة الأسبوعي" title="متابعة لدى الجهة"
           fields={[
             { name: 'outcome', label: 'النتيجة', type: 'textarea', required: true },
             { name: 'platformStatus', label: 'حالة المنصة', type: 'text', required: true },
@@ -149,7 +148,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
           ]} success="سُجّلت المتابعة" />
       )}
       {(isExpeditor || g.licensingOfficerId === me.id) && g.status === 'at_authority' && (
-        <CommandButton command="gov.record_result" base={base} variant="secondary" label="تسجيل نتيجة الجهة" title="نتيجة الجهة لهذه الجولة (GT-09…GT-11)"
+        <CommandButton command="gov.record_result" base={base} variant="secondary" label="تسجيل نتيجة الجهة" title="نتيجة الجهة لهذه الجولة"
           fields={[
             { name: 'outcome', label: 'النتيجة', type: 'select', options: [
               { value: 'comments', label: 'ملاحظات فنية ← مهمة للقسم' }, { value: 'docs_request', label: 'طلب مستند من العميل' },
@@ -164,7 +163,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
           success="سُجّلت النتيجة" />
       )}
       {(isPm || g.licensingOfficerId === me.id) && g.status === 'final_rejection_decision' && (
-        <CommandButton command="gov.final_decision" base={base} variant="danger" label="قرار بعد الرفض النهائي" title="إعادة التقديم أم الإغلاق دون صدور (GT-10)"
+        <CommandButton command="gov.final_decision" base={base} variant="danger" label="قرار بعد الرفض النهائي" title="إعادة التقديم أم الإغلاق دون صدور"
           fields={[
             { name: 'decision', label: 'القرار', type: 'select', options: [{ value: 'resubmit', label: 'إعادة التجهيز والتقديم' }, { value: 'close', label: 'إغلاق دون صدور' }] },
             { name: 'reason', label: 'السبب الموثق', type: 'textarea', required: true },
@@ -180,52 +179,50 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
       title={
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <Id className="text-sm">{g.id}</Id>
+            <h2 className="text-lg font-semibold text-ink">{g.procedureType}</h2>
             <StatePill s={GOV_STATES[g.status]} />
-            {g.rounds.length > 0 && <Pill tone="brand">جولة {g.rounds.length}</Pill>}
+            {g.rounds.length > 0 && <Pill tone="muted">جولة {g.rounds.length}</Pill>}
           </div>
-          <h2 className="mt-1 text-base font-semibold text-ink">{g.procedureType}</h2>
-          <p className="text-xs text-muted">{g.authority} · {g.platform}</p>
+          <p className="mt-0.5 text-sm text-muted">{g.authority} · {g.platform} · <span className="ltr-iso">{g.id}</span></p>
         </div>
       }
       actions={actions}
     >
       <div className="space-y-5">
         {g.status === 'at_authority' && wu.late && (
-          <Notice tone="danger" title="تأخر التحديث الأسبوعي الإلزامي">آخر تحديث {fmtDate(g.lastUpdateAt)} — نُبّه مدير المعاملات الحكومية. <Rule>GT-08</Rule></Notice>
+          <Notice tone="danger" title="تأخر التحديث الأسبوعي الإلزامي">آخر تحديث {fmtDate(g.lastUpdateAt)} — نُبّه مدير المعاملات الحكومية.</Notice>
         )}
         {g.status === 'comments_processing' && (() => {
           const r = g.rounds[g.rounds.length - 1];
           const t = state.tasks.find((x) => x.id === r?.commentsTaskId);
           return (
-            <Notice tone="waiting" title="ملاحظات الجهة قيد المعالجة — توقف عداد الجهة وبدأ وقت المكتب">
-              {t ? <>المهمة <Link className="underline" to={`/work?task=${t.id}`}>{t.id}</Link> لدى {userName(t.ownerId)} — {t.status === 'completed' ? 'مكتملة: يمكن إعادة التقديم' : 'لم تكتمل بعد'}</> : null} <Rule>GT-09</Rule>
+            <Notice tone="waiting" title="ملاحظات الجهة قيد المعالجة — يُحسب الآن وقت المكتب">
+              {t ? <>المهمة <Link className="underline" to={`/work?task=${t.id}`}>{t.id}</Link> لدى {userName(t.ownerId)} — {t.status === 'completed' ? 'مكتملة: يمكن إعادة التقديم' : 'لم تكتمل بعد'}</> : null}
             </Notice>
           );
         })()}
         {g.status === 'closed_not_issued' && <Notice tone="muted" title="أُغلقت دون صدور">{g.closedReason}</Notice>}
 
-        <dl className="grid grid-cols-2 gap-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
           <Fact label="المشروع">{proj ? <Link className="text-brand-700 hover:underline" to={`/projects/${proj.id}?tab=gov`}>{proj.id} — {proj.title}</Link> : g.projectId}</Fact>
           <Fact label="المخرج المرتبط">{deliverable ? <Link className="text-brand-700 hover:underline" to={`/projects/${g.projectId}?tab=deliverables&d=${deliverable.id}`}>{deliverable.title}</Link> : '—'}</Fact>
           <Fact label="مسؤول الرخص">{userName(g.licensingOfficerId)}</Fact>
           <Fact label="المعقّب">{g.expeditorId ? userName(g.expeditorId) : 'لم يُسند'}</Fact>
-          <Fact label="وقت المكتب (تجهيز + معالجة)"><span className="tabular">{times.office} يوم</span></Fact>
-          <Fact label="انتظار الجهة (كل الجولات)"><span className="tabular">{times.authority} يوم</span> <Rule>F10</Rule></Fact>
+          <Fact label="وقت المكتب"><span className="tabular">{times.office} يوم</span></Fact>
+          <Fact label="انتظار الجهة (كل الجولات)"><span className="tabular">{times.authority} يوم</span></Fact>
           <Fact label="آخر تحديث / التالي">{fmtDate(g.lastUpdateAt)} / {fmtDate(wu.next)}</Fact>
-          <Fact label="أُنشئت من قالب الخدمة"><span className="ltr-iso">{g.serviceCode || '—'}</span> · <DateText iso={g.createdAt} /></Fact>
+          <Fact label="أُنشئت"><DateText iso={g.createdAt} /> <span className="ltr-iso text-xs font-normal text-muted">{g.serviceCode}</span></Fact>
         </dl>
 
         {g.result && (
-          <div className="rounded-md border border-st-success/30 bg-st-success-bg p-3 text-sm text-st-success">
-            <p className="font-semibold">صدرت — رقم الوثيقة <span className="ltr-iso">{g.result.docNo}</span></p>
-            <p>تاريخ الإصدار {fmtDate(g.result.issuedAt)}{g.result.expiresAt && <> · تنتهي {fmtDate(g.result.expiresAt)} (تذكير الانتهاء لا يمنع الإغلاق)</>}</p>
-          </div>
+          <Notice tone="success" title={<>صدرت — رقم الوثيقة <span className="ltr-iso">{g.result.docNo}</span></>}>
+            تاريخ الإصدار {fmtDate(g.result.issuedAt)}{g.result.expiresAt && <> · تنتهي {fmtDate(g.result.expiresAt)}</>}
+          </Notice>
         )}
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">المستندات المطلوبة من قالب الخدمة</h3>
-          {g.requiredDocs.length === 0 && <p className="text-sm text-muted">لا مستندات محددة في القالب.</p>}
+          <h3 className="mb-2 text-sm font-semibold text-ink">المستندات المطلوبة <span className="font-normal text-muted">({g.requiredDocs.filter((d) => d.received).length}/{g.requiredDocs.length})</span></h3>
+          {g.requiredDocs.length === 0 && <p className="text-sm text-muted">لا مستندات محددة.</p>}
           <ul className="space-y-1">
             {g.requiredDocs.map((d) => (
               <li key={d.name}>
@@ -243,7 +240,7 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
         </section>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold text-ink">الجولات <Rule>GT-09</Rule></h3>
+          <h3 className="mb-2 text-sm font-semibold text-ink">الجولات</h3>
           {g.rounds.length === 0 ? <p className="text-sm text-muted">لم تُقدّم بعد.</p> : (
             <Table head={['#', 'التقديم', 'انتظار الجهة', 'معالجة المكتب', 'النتيجة']}>
               {g.rounds.map((r) => {
@@ -269,13 +266,18 @@ export function GovDrawer({ govId, onClose }: { govId?: string | null; onClose: 
         </section>
 
         {g.fees && (
-          <section className="rounded-md border border-line p-3 text-sm">
-            <h3 className="mb-1 font-semibold text-ink">رسوم الجهة <Rule>GT-05</Rule></h3>
-            <p>
-              <Money v={g.fees.amount} /> · {g.fees.payer === 'client' ? 'يدفعها العميل (الأصل)' : 'تدفعها أباك استثنائيًا'} · {g.fees.status === 'paid' ? <Pill tone="success">مسددة</Pill> : <Pill tone="waiting">بانتظار السداد</Pill>}
-            </p>
-            {cost && <p className="mt-1 text-xs">طلب التكلفة: <Link className="text-brand-700 hover:underline" to={`/projects/${cost.projectId}?tab=costs&c=${cost.id}`}>{cost.id}</Link> — مدير الأقسام ثم المالية</p>}
-            <p className="mt-1 text-xs text-muted">فاتورة الرسوم: {g.feeInvoiceChecked ? 'تم التحقق' : 'لم يُتحقق'} · مسؤول الفرصة ليس طرفًا في السداد</p>
+          <section className="text-sm">
+            <h3 className="mb-2 font-semibold text-ink">رسوم الجهة</h3>
+            <div className="rounded-lg bg-page p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Money v={g.fees.amount} className="text-base font-semibold text-ink" />
+                {g.fees.status === 'paid' ? <Pill tone="success">مسددة</Pill> : <Pill tone="waiting">بانتظار السداد</Pill>}
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {g.fees.payer === 'client' ? 'يدفعها العميل' : 'تدفعها أباك استثنائيًا'} · فاتورة الرسوم {g.feeInvoiceChecked ? 'متحقق منها' : 'لم يُتحقق منها'}
+                {cost && <> · طلب التكلفة <Link className="text-brand-700 hover:underline" to={`/projects/${cost.projectId}?tab=costs&c=${cost.id}`}>{cost.id}</Link></>}
+              </p>
+            </div>
           </section>
         )}
 

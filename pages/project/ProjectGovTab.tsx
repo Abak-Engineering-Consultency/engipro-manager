@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../../app/store';
 import { govTimes } from '../../domain/selectors';
 import { GovDrawer, GovTable } from '../../components/gov/GovViews';
-import { Fact, Rule } from '../../components/ui';
+import { Fact } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
 
-/** 11-B4 for one project: its transactions, with office time and authority waiting kept apart. */
+/** One project's transactions, with office time and authority waiting kept apart. */
 export const ProjectGovTab: React.FC<TabProps> = ({ project }) => {
   const { state } = useStore();
   const [params, setParams] = useSearchParams();
@@ -20,18 +20,18 @@ export const ProjectGovTab: React.FC<TabProps> = ({ project }) => {
   };
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p className="max-w-2xl text-sm text-ink-2">
-          تُنشأ المعاملة من قالب الخدمة المعتمد عند بدء التنفيذ لكل مخرج يتطلب إجراءً حكوميًا، وصدورها يعتمد المخرج ويفحص شرط الدفعة. <Rule>GT-01</Rule> <Rule>GT-11</Rule>
-        </p>
-        <dl className="flex gap-6">
-          <Fact label="وقت المكتب (كل المعاملات)"><span className="tabular">{totals.reduce((s, t) => s + t.office, 0)} يوم</span></Fact>
-          <Fact label="انتظار الجهة"><span className="tabular">{totals.reduce((s, t) => s + t.authority, 0)} يوم</span> <Rule>F10</Rule></Fact>
+      {items.length > 0 && (
+        <dl className="flex flex-wrap gap-x-10 gap-y-3">
+          <Fact label="المعاملات">{items.length}</Fact>
+          <Fact label="وقت المكتب"><span className="tabular">{totals.reduce((s, t) => s + t.office, 0)} يوم</span></Fact>
+          <Fact label="انتظار الجهة"><span className="tabular">{totals.reduce((s, t) => s + t.authority, 0)} يوم</span></Fact>
         </dl>
-      </div>
-      <div className="rounded-lg border border-line">
-        <GovTable items={items} onOpen={setOpen} showProject={false} />
-      </div>
+      )}
+      {items.length ? (
+        <div className="-mx-5 -mb-5 border-t border-line">
+          <GovTable items={items} onOpen={setOpen} showProject={false} />
+        </div>
+      ) : <GovTable items={items} onOpen={setOpen} showProject={false} />}
       <GovDrawer govId={params.get('g')} onClose={() => setOpen(null)} />
     </div>
   );

@@ -6,10 +6,19 @@ import { fmtDate } from '../../domain/calendar';
 import { PAYMENT_CONDITIONS } from '../../domain/labels';
 import { allows } from '../../domain/permissions';
 import { MappingEditor, MAPPING_STATUS, PaymentDrawer, ThreeDims, dueCls, linkSummary, paymentTotals } from '../../components/finance/PaymentViews';
-import { Button, CommandButton, Empty, Id, Kpi, Money, Notice, Pill, Rule, Table, Td } from '../../components/ui';
+import { Button, CommandButton, Empty, Money, Notice, Pill, Table, Td, cn } from '../../components/ui';
 import type { TabProps } from './ProjectPage';
 
 /** 11-B3 — the contract's payment schedule, linked by the PM, verified and collected by finance. */
+function Stat({ label, value, tone }: { label: string; value: number; tone?: 'waiting' | 'danger' }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className={cn('mt-0.5 text-lg font-semibold', tone === 'danger' ? 'text-st-danger' : tone === 'waiting' ? 'text-st-waiting' : 'text-ink')}><Money v={value} /></dd>
+    </div>
+  );
+}
+
 export const PaymentsTab: React.FC<TabProps> = ({ project }) => {
   const { state, me } = useStore();
   const { userName } = useLookup();
@@ -29,23 +38,22 @@ export const PaymentsTab: React.FC<TabProps> = ({ project }) => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Kpi label="قيمة جدول الدفعات" value={<Money v={t.value} />} hint={`${project.contracts.length} عقد/ملحق — جدول واحد بلا توزيع مصطنع`} />
-        <Kpi label="مستحقة ضمن المهلة" value={<Money v={t.due} />} tone={t.due ? 'waiting' : undefined} />
-        <Kpi label="متأخرة" value={<Money v={t.overdue} />} tone={t.overdue ? 'danger' : undefined} />
-        <Kpi label="المحصل (بتأكيد المالية)" value={<Money v={t.collected} />} />
-        <Kpi label="المتبقي" value={<Money v={t.remaining} />} />
-      </div>
+    <div className="space-y-5">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg bg-page px-5 py-4 md:grid-cols-5">
+        <Stat label="قيمة جدول الدفعات" value={t.value} />
+        <Stat label="المحصل" value={t.collected} />
+        <Stat label="المتبقي" value={t.remaining} />
+        <Stat label="مستحقة ضمن المهلة" value={t.due} tone={t.due ? 'waiting' : undefined} />
+        <Stat label="متأخرة" value={t.overdue} tone={t.overdue ? 'danger' : undefined} />
+      </dl>
 
       {contract.length > 0 && (
-        <section className="rounded-lg border border-line p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <section className="rounded-lg border border-line px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Link2 size={16} className="text-muted" />
+              <Link2 size={16} className="text-brand-600" />
               <span className="text-sm font-semibold text-ink">ربط الدفعات بالمخرجات</span>
               <Pill tone={MAPPING_STATUS[m.status].tone}>{MAPPING_STATUS[m.status].label}</Pill>
-              <Rule>PJ-07</Rule>
               {m.decidedBy && <span className="text-xs text-muted">{userName(m.decidedBy)} · {fmtDate(m.decidedAt)}</span>}
             </div>
             <div className="flex flex-wrap gap-2">
@@ -59,25 +67,27 @@ export const PaymentsTab: React.FC<TabProps> = ({ project }) => {
             </div>
           </div>
           {m.note && <p className="mt-2 text-sm text-st-danger">ملاحظة المالية: {m.note}</p>}
-          {m.status !== 'confirmed' && project.status === 'preparing' && <p className="mt-1 text-xs text-muted">تأكيد المالية للربط شرط في بوابة البدء (PJ-09).</p>}
+          {m.status !== 'confirmed' && project.status === 'preparing' && <p className="mt-1 text-xs text-muted">مطلوب قبل بدء التنفيذ.</p>}
         </section>
       )}
 
-      {!pays.length ? <Empty title="لا يوجد جدول دفعات في النظام" hint={project.createdFrom === 'pre_system' ? 'مشروع قائم قبل النظام: راجعت المالية الأرصدة السابقة دون إعادة إصدار فواتير (AD-08).' : undefined} /> : (
-        <div className="rounded-lg border border-line">
-          <Table head={['الدفعة', 'الشرط', 'الربط', 'المبلغ', 'الأبعاد الثلاثة', 'الاستحقاق / المهلة', 'المحصل']}>
+      {!pays.length ? <Empty title="لا يوجد جدول دفعات في النظام" hint={project.createdFrom === 'pre_system' ? 'مشروع قائم قبل النظام — الأرصدة السابقة روجعت دون إعادة فواتير.' : undefined} /> : (
+        <div className="overflow-hidden rounded-lg border border-line">
+          <Table head={['الدفعة', 'الربط', 'المبلغ', 'الحالة', 'الاستحقاق / المهلة', 'المحصل']}>
             {pays.map((p) => (
-              <tr key={p.id} className="cursor-pointer hover:bg-sunken" onClick={() => open(p.id)}>
-                <Td><Id>{p.id}</Id><p className="text-sm font-medium text-ink">{p.label}</p></Td>
-                <Td className="text-sm">{PAYMENT_CONDITIONS[p.condition]}</Td>
+              <tr key={p.id} className="cursor-pointer hover:bg-page" onClick={() => open(p.id)}>
+                <Td>
+                  <p className="text-sm font-medium text-ink">{p.label}</p>
+                  <p className="text-xs text-muted">{PAYMENT_CONDITIONS[p.condition]} · <span className="ltr-iso">{p.id}</span></p>
+                </Td>
                 <Td><p className="max-w-[240px] text-xs text-ink-2">{linkSummary(state, project, p)}</p></Td>
-                <Td><Money v={p.amount} /></Td>
+                <Td><Money v={p.amount} className="font-medium text-ink" /></Td>
                 <Td><ThreeDims pay={p} /></Td>
                 <Td>
                   <span className={dueCls(p)}>
                     <span className="block text-xs">{p.dueAt ? <>استحقت {fmtDate(p.dueAt)}</> : p.scheduledDate ? <>مجدولة {fmtDate(p.scheduledDate)}</> : '—'}</span>
                     {p.graceUntil && <span className="block text-xs">المهلة حتى {fmtDate(p.graceUntil)}</span>}
-                    {p.escalatedAt && <span className="block text-xs text-st-danger">مصعّدة لمدير المبيعات</span>}
+                    {p.escalatedAt && <span className="block text-xs font-medium text-st-danger">مصعّدة لمدير المبيعات</span>}
                   </span>
                 </Td>
                 <Td><Money v={p.collected} />{p.transferClaim && p.collection !== 'fully_collected' && <span className="block text-xs text-st-waiting">أفاد العميل بالتحويل</span>}</Td>
@@ -88,7 +98,7 @@ export const PaymentsTab: React.FC<TabProps> = ({ project }) => {
       )}
 
       {['operationally_closed', 'cancelled'].includes(project.status) && t.remaining > 0 && (
-        <Notice tone="waiting">المشروع {project.status === 'cancelled' ? 'ملغى' : 'مغلق تشغيليًا'} ولا تسقط المستحقات: المالية تواصل المطالبة والتحصيل حتى التسوية. <Rule>A4</Rule> <Rule>AC-13</Rule> <Rule>AC-14</Rule></Notice>
+        <Notice tone="waiting">المشروع {project.status === 'cancelled' ? 'ملغى' : 'مغلق تشغيليًا'} والتحصيل مستمر حتى التسوية المالية.</Notice>
       )}
 
       {editing && <MappingEditor project={project} onClose={() => setEditing(false)} />}

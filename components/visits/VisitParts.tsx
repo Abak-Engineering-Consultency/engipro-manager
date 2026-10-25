@@ -5,7 +5,7 @@ import { VISIT_TYPES, visitTypeName } from '../../domain/catalog';
 import { VISIT_BILLING, VISIT_STATES } from '../../domain/labels';
 import { holds } from '../../domain/permissions';
 import type { ISO, RecordLink, Visit } from '../../domain/types';
-import { Avatar, cn, CommandButton, Id, Pill, Rule, StatePill, userOptions } from '../ui';
+import { Avatar, cn, CommandButton, Id, Pill, StatePill, userOptions } from '../ui';
 import { recordOptions, RECORD_TYPE_NAMES, toRecordLink } from '../work/records';
 
 const timeFmt = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
@@ -23,43 +23,39 @@ export function VisitCard({ visit, onOpen, compact }: { visit: Visit; onOpen: (i
   const { user } = useLookup();
   const owner = visit.ownerId === me.id;
   return (
-    <div className="rounded-lg border border-line bg-card p-3 shadow-card">
+    <article className="rounded-lg border border-line bg-card p-4 transition-colors hover:border-brand-300">
       <button className="block w-full text-start" onClick={() => onOpen(visit.id)}>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-xs font-medium text-ink tabular"><Clock size={12} className="text-muted" />{fmtTime(visit.plannedStart)} – {fmtTime(visit.plannedEnd)}</span>
+        <div className="flex items-start justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink tabular"><Clock size={14} className="text-muted" />{fmtTime(visit.plannedStart)} – {fmtTime(visit.plannedEnd)}</span>
           <StatePill s={VISIT_STATES[visit.status]} />
-          <Pill tone="brand">{visitTypeName(visit.type)}</Pill>
-          {visit.billing === 'billable' && <Pill tone={visit.claimId ? 'success' : 'waiting'}>{visit.claimId ? 'طولب بها' : 'قابلة للفوترة'}</Pill>}
         </div>
-        <p className="mt-1.5 text-sm font-medium text-ink">{visit.purpose}</p>
-        {!compact && (
-          <>
-            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted"><MapPin size={12} />{visit.location}</p>
-            {visit.link && <p className="mt-0.5 truncate text-xs text-ink-2">{RECORD_TYPE_NAMES[visit.link.type]}: {visit.link.label}</p>}
-          </>
-        )}
-        <div className="mt-2 flex items-center gap-2">
+        <p className="mt-2 text-sm font-medium text-ink">{visit.purpose}</p>
+        <p className="mt-0.5 text-xs text-muted">{visitTypeName(visit.type)}{!compact && <> · <MapPin size={11} className="inline" /> {visit.location}</>}</p>
+        {!compact && visit.link && <p className="mt-0.5 truncate text-xs text-muted">{RECORD_TYPE_NAMES[visit.link.type]}: {visit.link.label}</p>}
+        <div className="mt-3 flex items-center gap-2">
+          {visit.billing === 'billable' && !visit.claimId && <Pill tone="waiting">قابلة للفوترة</Pill>}
+          {visit.billing === 'billable' && visit.claimId && <span className="text-xs text-st-success">طولب بها</span>}
           <Id>{visit.id}</Id>
-          <span className="ms-auto flex gap-0.5">
-            {[visit.ownerId, ...visit.participants].map((u) => <Avatar key={u} user={user(u)} size={22} />)}
+          <span className="ms-auto flex -space-x-1.5 rtl:space-x-reverse">
+            {[visit.ownerId, ...visit.participants].map((u) => <span key={u} className="rounded-full ring-2 ring-card"><Avatar user={user(u)} size={24} /></span>)}
           </span>
         </div>
       </button>
       {owner && !compact && (visit.status === 'proposed' || (visit.status === 'confirmed' && !visit.actualStart)) && (
-        <div className="mt-2 flex flex-wrap gap-2 border-t border-line pt-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
           {visit.status === 'proposed' && <CommandButton command="visit.confirm" base={{ visitId: visit.id }} label="تأكيد الموعد" success="تأكدت الزيارة" />}
           {visit.status === 'confirmed' && !visit.actualStart && <CommandButton command="visit.check_in" base={{ visitId: visit.id }} label="تسجيل الوصول" icon={<LogIn size={14} />} success="سُجّل الوصول" />}
           <button className="text-xs text-brand-700 hover:underline" onClick={() => onOpen(visit.id)}>توثيق النتيجة…</button>
         </div>
       )}
-    </div>
+    </article>
   );
 }
 
 const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const dayFmt = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { timeZone: 'Asia/Riyadh', day: 'numeric', month: 'short' });
 
-/** VS-09 — a simple Sunday–Saturday week around the demo date. */
+/** A simple Sunday–Saturday week around the demo date. */
 export function WeekView({ visits, now, onOpen }: { visits: Visit[]; now: ISO; onOpen: (id: string) => void }) {
   const start = addCalendarDays(now, -weekday(now));
   const days = Array.from({ length: 7 }, (_, i) => addCalendarDays(start, i));
@@ -70,19 +66,19 @@ export function WeekView({ visits, now, onOpen }: { visits: Visit[]; now: ISO; o
         const key = dateKey(d);
         const items = visits.filter((v) => dateKey(v.plannedStart) === key).sort((a, b) => a.plannedStart.localeCompare(b.plannedStart));
         return (
-          <div key={key} className={cn('min-h-[120px] rounded-lg border p-2', key === today ? 'border-brand-300 bg-brand-50/50' : 'border-line bg-page')}>
+          <div key={key} className={cn('min-h-[120px] rounded-lg border p-2', key === today ? 'border-brand-300 bg-brand-50/50' : 'border-transparent bg-page')}>
             <p className={cn('mb-2 flex items-center justify-between text-xs', key === today ? 'font-semibold text-brand-700' : 'text-muted')}>
               <span>{DAY_NAMES[i]}</span>
               <span className="tabular">{dayFmt.format(new Date(d))}</span>
             </p>
             <div className="space-y-1.5">
               {items.map((v) => (
-                <button key={v.id} onClick={() => onOpen(v.id)} className="block w-full rounded border border-line bg-card px-2 py-1.5 text-start hover:border-brand-300">
+                <button key={v.id} onClick={() => onOpen(v.id)} className="block w-full rounded-md border border-line bg-card px-2 py-1.5 text-start hover:border-brand-300">
                   <span className="block text-[11px] text-muted tabular">{fmtTime(v.plannedStart)} · {VISIT_STATES[v.status].label}</span>
                   <span className="block truncate text-xs font-medium text-ink">{v.purpose}</span>
                 </button>
               ))}
-              {!items.length && <p className="py-2 text-center text-[11px] text-faint">—</p>}
+
             </div>
           </div>
         );
@@ -91,7 +87,7 @@ export function WeekView({ visits, now, onOpen }: { visits: Visit[]; now: ISO; o
   );
 }
 
-/** VS-01/VS-02 — request, assign and schedule a visit; the engine checks participant conflicts. */
+/** Request, assign and schedule a visit; the engine checks participant conflicts. */
 export function ScheduleVisitButton({ presetLink, label = 'جدولة زيارة', variant = 'primary', onCreated }: { presetLink?: RecordLink; label?: string; variant?: 'primary' | 'secondary'; onCreated?: (id: string) => void }) {
   const { state, me } = useStore();
   if (!holds(me, 'visit.manage')) return null;
@@ -110,7 +106,7 @@ export function ScheduleVisitButton({ presetLink, label = 'جدولة زيارة
       size="md"
       icon={<CalendarPlus size={16} />}
       success="جُدولت الزيارة (مقترحة) وأُبلغ المشاركون"
-      intro={<>سجل واحد للزيارة عبر المبيعات والتنفيذ والجهات <Rule>VS-01</Rule>. يُفحص تعارض المسؤول والمشاركين قبل الحفظ <Rule>VS-02</Rule>.</>}
+      intro={<>سجل واحد للزيارة عبر المبيعات والتنفيذ والجهات. يُفحص تعارض المسؤول والمشاركين قبل الحفظ.</>}
       fields={[
         { name: 'type', label: 'نوع الزيارة', type: 'select', options: VISIT_TYPES.map((t) => ({ value: t.id, label: t.needsReport ? `${t.name} (تقرير إلزامي)` : t.name })), initial: presetLink?.type === 'gov' ? 'expeditor' : presetLink?.type === 'project' ? 'supervision' : 'inspection' },
         { name: 'purpose', label: 'الغرض', type: 'text', required: true },
